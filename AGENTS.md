@@ -33,10 +33,12 @@ Homebrew tap for paniolo (and future formulae). Users install with
 
 ## Constraints
 
-- The formula must pin a paniolo tag ≥ v0.1.1 — that release added the
+- The formula must pin a paniolo tag ≥ v0.1.2: v0.1.1 added the
   exe-relative libexec lookup (`exe_relative_dirs` in `cli/src/daemons.rs`)
-  that lets a keg-installed CLI find its helpers. Older tags build fine but
-  the helpers are invisible to the CLI.
+  that lets a keg-installed CLI find its helpers; v0.1.2 made
+  `paniolo setup` work without a source checkout (the caveat tells users to
+  run it for the macOS setuid step). Older tags build fine but break one or
+  both of those flows.
 - Helper list in the formula mirrors `HELPER_CRATES` in paniolo's
   `cli/src/setup.rs` — keep them in sync when helpers are added.
 - `std_cargo_args` passes `--locked`: every paniolo crate keeps a committed

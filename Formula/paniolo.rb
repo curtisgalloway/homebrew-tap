@@ -15,8 +15,8 @@
 class Paniolo < Formula
   desc "Agent-controlled target machine wrangler for distributed bring-up"
   homepage "https://github.com/curtisgalloway/paniolo"
-  url "https://github.com/curtisgalloway/paniolo/archive/refs/tags/v0.1.1.tar.gz"
-  sha256 "9ada1aeb2da8f003a7c588027c7c74331962318de39cfd2a07f890e0c1b35b1b"
+  url "https://github.com/curtisgalloway/paniolo/archive/refs/tags/v0.1.2.tar.gz"
+  sha256 "f55b4772fb322358a4c135e8c8129bfd96cd5f868ca95f4f426fb422aaa64a0c"
   license "Apache-2.0"
   head "https://github.com/curtisgalloway/paniolo.git", branch: "main"
 
@@ -48,14 +48,13 @@ class Paniolo < Formula
 
   def caveats
     <<~EOS
+      Run `paniolo setup` once to finish platform setup (on macOS this
+      setuid-installs the netbootd BPF helper — one sudo prompt; re-run it
+      after `brew upgrade paniolo`, since an upgrade resets the setuid bit).
+
       Helpers are private to paniolo in:
         #{opt_libexec}/bin
       (found automatically; run one directly with `paniolo helper <name> ...`).
-
-      macOS: the netbootd raw-frame (BPF) send path needs its helper
-      setuid-root once:
-        sudo chown root #{opt_libexec}/bin/netbootd-bpf-helper
-        sudo chmod u+s #{opt_libexec}/bin/netbootd-bpf-helper
 
       The optional zigplug Zigbee helper is a Python uv tool — install it
       from a source checkout via `paniolo setup`.
