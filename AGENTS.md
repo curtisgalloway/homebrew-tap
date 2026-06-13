@@ -51,6 +51,10 @@ After any bump, verify on a Mac: `brew update && brew upgrade paniolo` (or
   both of those flows.
 - Helper list in the formula mirrors `HELPER_CRATES` in paniolo's
   `cli/src/setup.rs` — keep them in sync when helpers are added.
+- Bundled skills (`paniolo skill`) install from a `skills/*/SKILL.md` glob
+  into the keg's `share/paniolo/skills` (the canonicalized exe-relative dir in
+  `cli/src/skills.rs`), so new skills need no formula edit. Requires a pin ≥
+  v0.1.4, where the `skills/` tree and the `skill` subcommand first exist.
 - `std_cargo_args` passes `--locked`: every paniolo crate keeps a committed
   `Cargo.lock`, so a version bump needs no formula changes beyond url/sha.
 - macOS is the tested platform. The `on_linux` build deps mirror paniolo's
