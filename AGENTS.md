@@ -57,6 +57,15 @@ After any bump, verify on a Mac: `brew update && brew upgrade paniolo` (or
   v0.1.4, where the `skills/` tree and the `skill` subcommand first exist.
 - `std_cargo_args` passes `--locked`: every paniolo crate keeps a committed
   `Cargo.lock`, so a version bump needs no formula changes beyond url/sha.
+- Changing the formula's install logic (or anything that alters the built
+  keg) at an **unchanged** paniolo version requires a `revision N` bump —
+  brew keys upgrades on the version string, so without it `brew upgrade` is a
+  no-op and existing installs need `brew reinstall paniolo` to pick up the
+  change. (Seen once: the automated url/sha bump shipped 0.1.4 with no skills,
+  then a manual PR added the skills block still at 0.1.4 — same-version kegs
+  never rebuilt.) The automated bump only rewrites url/sha, so a normal
+  release is always a new version and is exempt; this only bites a hand edit
+  that keeps the version.
 - macOS is the tested platform. The `on_linux` build deps mirror paniolo's
   `make check-deps` list, but Linux-via-brew is untested — the README points
   Linux users at the .deb instead.
