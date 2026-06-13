@@ -21,15 +21,25 @@ Homebrew tap for paniolo (and future formulae). Users install with
 
 ## Releasing a new paniolo version
 
-1. Tag the release in the paniolo repo (`vX.Y.Z`) — its release workflow
-   builds the Linux packages; the formula here builds from the source
-   tarball GitHub generates for the tag.
-2. Compute the tarball digest:
-   `curl -fsSL https://github.com/curtisgalloway/paniolo/archive/refs/tags/vX.Y.Z.tar.gz | sha256sum`
-3. Update `url` and `sha256` in `Formula/paniolo.rb`, commit, push.
-4. Verify on a Mac: `brew update && brew upgrade paniolo` (or
-   `brew install --build-from-source Formula/paniolo.rb` from a checkout),
-   then `brew test paniolo`.
+The url/sha bump is automated. When paniolo's release workflow publishes a
+`vX.Y.Z` Release it fires a `repository_dispatch` (`event_type:
+paniolo-release`) at this repo, and `.github/workflows/bump-formula.yml`
+re-pins `Formula/paniolo.rb` (url + source-tarball sha256) and commits. So a
+normal release needs nothing here.
+
+Requires the `HOMEBREW_TAP_DISPATCH_TOKEN` secret in the *paniolo* repo — a
+fine-grained PAT with Contents:write on this repo — so paniolo can fire the
+dispatch (the default `GITHUB_TOKEN` can't trigger cross-repo). Without it the
+paniolo job warns and skips; the formula just won't move until bumped by hand.
+
+Manual / catch-up bump (no release needed): run the **Bump paniolo formula**
+workflow here (`workflow_dispatch`) — leave `tag` blank to pin paniolo's
+latest release, or pass an explicit `vX.Y.Z`. From a checkout:
+`gh workflow run bump-formula.yml -f tag=vX.Y.Z`.
+
+After any bump, verify on a Mac: `brew update && brew upgrade paniolo` (or
+`brew install --build-from-source Formula/paniolo.rb` from a checkout), then
+`brew test paniolo`.
 
 ## Constraints
 

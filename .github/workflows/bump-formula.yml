@@ -1,0 +1,89 @@
+# Copyright 2026 Curtis Galloway
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Re-pin Formula/paniolo.rb to a paniolo release tag and commit.
+#
+# Fired automatically by paniolo's release workflow via repository_dispatch
+# (event_type: paniolo-release, client_payload.tag = vX.Y.Z) once a Release is
+# published. Also runnable by hand (workflow_dispatch) with an optional tag —
+# omit it to pin whatever paniolo's latest release is, e.g. to catch the
+# formula up after enabling this.
+#
+# The commit uses the repo's own GITHUB_TOKEN (contents: write below); paniolo
+# only needs a credential to TRIGGER this, not to push here.
+
+name: Bump paniolo formula
+
+on:
+  repository_dispatch:
+    types: [paniolo-release]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "paniolo release tag to pin (e.g. v0.1.4); default = latest"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve target tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISPATCH_TAG: ${{ github.event.client_payload.tag }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          tag="${DISPATCH_TAG:-$INPUT_TAG}"
+          if [ -z "$tag" ]; then
+            tag=$(gh release view --repo curtisgalloway/paniolo --json tagName -q .tagName)
+          fi
+          case "$tag" in
+            v[0-9]*) ;;
+            *) echo "::error::Unexpected tag '$tag' (want vX.Y.Z)"; exit 1 ;;
+          esac
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Re-pin Formula/paniolo.rb to ${{ steps.tag.outputs.tag }}
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          url="https://github.com/curtisgalloway/paniolo/archive/refs/tags/${TAG}.tar.gz"
+          echo "Hashing $url"
+          sha=$(curl -fsSL "$url" | sha256sum | cut -d' ' -f1)
+          sed -i -E \
+            "s#/archive/refs/tags/v[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz#/archive/refs/tags/${TAG}.tar.gz#" \
+            Formula/paniolo.rb
+          sed -i -E "s#sha256 \"[0-9a-f]{64}\"#sha256 \"${sha}\"#" Formula/paniolo.rb
+          echo "Formula now pins:"
+          grep -E '  (url|sha256) ' Formula/paniolo.rb
+
+      - name: Commit the bump
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          if git diff --quiet -- Formula/paniolo.rb; then
+            echo "Formula already pins ${VERSION} — nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "paniolo ${VERSION}: re-pin formula (automated)" -- Formula/paniolo.rb
+          git push
