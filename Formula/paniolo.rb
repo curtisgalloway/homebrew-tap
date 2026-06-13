@@ -15,8 +15,8 @@
 class Paniolo < Formula
   desc "Agent-controlled target machine wrangler for distributed bring-up"
   homepage "https://github.com/curtisgalloway/paniolo"
-  url "https://github.com/curtisgalloway/paniolo/archive/refs/tags/v0.1.2.tar.gz"
-  sha256 "f55b4772fb322358a4c135e8c8129bfd96cd5f868ca95f4f426fb422aaa64a0c"
+  url "https://github.com/curtisgalloway/paniolo/archive/refs/tags/v0.1.4.tar.gz"
+  sha256 "fe024532659e91ec78f29ae7a5cf23213c2430ef6ff74fd128bc602e1247f522"
   license "Apache-2.0"
   head "https://github.com/curtisgalloway/paniolo.git", branch: "main"
 
@@ -44,6 +44,17 @@ class Paniolo < Formula
     else
       (libexec/"bin").install "ocr/linuxocr"
     end
+
+    # Bundled agent skills (`paniolo skill`): the CLI reads them from
+    # <keg>/share/paniolo/skills — the exe-relative share lookup in
+    # cli/src/skills.rs (canonicalizes the binary, so they must live in the
+    # keg, not just the opt-linked prefix). Mirror the repo's
+    # skills/<name>/SKILL.md layout. Globbed so new skills need no formula edit
+    # (unlike the .deb's nfpm manifest, which lists one entry per skill).
+    Dir["skills/*/SKILL.md"].each do |manifest|
+      name = File.basename(File.dirname(manifest))
+      (share/"paniolo/skills"/name).install manifest
+    end
   end
 
   def caveats
@@ -59,6 +70,9 @@ class Paniolo < Formula
       The optional zigplug Zigbee helper is a Python uv tool — install it
       from a source checkout via `paniolo setup`.
 
+      Bundled agent skills are available via `paniolo skill` (no arg lists
+      them; a name prints that skill's SKILL.md).
+
       Linux: prebuilt .debs on GitHub Releases are the better-tested path:
         https://github.com/curtisgalloway/paniolo/releases
     EOS
@@ -67,5 +81,7 @@ class Paniolo < Formula
   test do
     assert_match "paniolo", shell_output("#{bin}/paniolo --help")
     assert_predicate libexec/"bin/serialcap", :executable?
+    assert_path_exists share/"paniolo/skills/paniolo/SKILL.md"
+    assert_match "paniolo", shell_output("#{bin}/paniolo skill")
   end
 end
