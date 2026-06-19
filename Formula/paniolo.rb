@@ -15,8 +15,8 @@
 class Paniolo < Formula
   desc "Agent-controlled target machine wrangler for distributed bring-up"
   homepage "https://github.com/curtisgalloway/paniolo"
-  url "https://github.com/curtisgalloway/paniolo/archive/refs/tags/v0.1.8.tar.gz"
-  sha256 "b49c9e8965e9fddb07fccdac7cd9ad25a9bc9beae26f82323ed8948ddf8be697"
+  url "https://github.com/curtisgalloway/paniolo/archive/refs/tags/v0.1.9.tar.gz"
+  sha256 "b74258664a235bd1c0427fe9f3a37163e2eb5e2b94b43af62a10a7722b60233d"
   license "Apache-2.0"
   head "https://github.com/curtisgalloway/paniolo.git", branch: "main"
 
