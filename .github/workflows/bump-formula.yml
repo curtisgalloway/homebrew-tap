@@ -116,7 +116,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "paniolo ${VERSION}: re-pin formula (automated)" -- Formula/paniolo.rb
-          git push
+          # Explicit refspec: bare `git push` needs an upstream tracking ref,
+          # which isn't reliably set in the CI checkout (and setup-homebrew can
+          # clear it in the merge job).
+          git push origin HEAD:main
 
   bottle:
     name: bottle (apple silicon)
@@ -219,4 +222,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "paniolo ${VERSION}: add bottles (automated)" -- Formula/paniolo.rb
-          git push
+          # Explicit refspec: setup-homebrew's tap symlink leaves main without an
+          # upstream, so bare `git push` fails ("no upstream branch").
+          git push origin HEAD:main
