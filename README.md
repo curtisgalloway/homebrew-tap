@@ -35,16 +35,15 @@ Or in one step: `brew install curtisgalloway/tap/paniolo`.
 | [`paniolo`](Formula/paniolo.rb) | Agent-controlled target machine wrangler — distributed bring-up control over SSH ([repo](https://github.com/curtisgalloway/paniolo)) |
 
 `paniolo` installs the CLI on PATH with its helper daemons in the formula's
-private libexec. On macOS it pours a **precompiled bottle** — no Rust toolchain
-required (bottles are built for Intel and Apple Silicon and published with each
-release). If you're on a macOS version newer than the build hosts, Homebrew
-uses the newest compatible bottle; if none matches it falls back to building
-from source (Rust is pulled in automatically as a build-only dep).
+private libexec. On **Apple Silicon** Macs it pours a **precompiled bottle** —
+no Rust toolchain required (an `arm64` bottle is published with each release).
+On a macOS newer than the build host Homebrew uses the newest compatible
+bottle; if none matches it falls back to building from source (Rust is pulled
+in automatically as a build-only dep).
 
-On Linux there are no bottles — `brew install` would build from source, but the
-prebuilt `.deb`s on
-[GitHub Releases](https://github.com/curtisgalloway/paniolo/releases) are the
-better-tested path.
+On **Intel** Macs and on **Linux** there are no bottles — `brew install` builds
+from source. Linux users are better served by the prebuilt `.deb`s on
+[GitHub Releases](https://github.com/curtisgalloway/paniolo/releases).
 
 ## License
 

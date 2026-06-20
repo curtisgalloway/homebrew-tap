@@ -23,12 +23,12 @@
 # Pipeline (three jobs, run in order):
 #   bump   - re-pin url + source-tarball sha256, strip any stale bottle block,
 #            commit & push (ubuntu).
-#   bottle - on each macOS arch (Intel + Apple Silicon): source-build the
-#            re-pinned formula with --build-bottle, `brew bottle` it, and upload
-#            the tarball to a `paniolo-<version>` Release on THIS repo. The
-#            per-arch bottle JSON is stashed as a build artifact.
-#   merge  - download every bottle JSON, `brew bottle --merge` the sha256s into
-#            the formula, commit & push (ubuntu).
+#   bottle - on Apple Silicon (macos-14): source-build the re-pinned formula
+#            with --build-bottle, `brew bottle` it, and upload the tarball to a
+#            `paniolo-<version>` Release on THIS repo. The bottle JSON is stashed
+#            as a build artifact.
+#   merge  - download the bottle JSON, `brew bottle --merge` the sha256 into the
+#            formula, commit & push (ubuntu).
 #
 # All commits use the repo's own GITHUB_TOKEN (contents: write below); paniolo
 # only needs a credential to TRIGGER this, not to push here. Bottles live on
@@ -119,19 +119,13 @@ jobs:
           git push
 
   bottle:
-    name: bottle (${{ matrix.runner }})
+    name: bottle (apple silicon)
     needs: bump
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # Build on the OLDEST runner per arch: Homebrew uses a bottle tagged
-          # for any macOS <= the running one, so the older the build host, the
-          # wider the coverage. macos-13 = Intel (x86_64), macos-14 = the oldest
-          # GA Apple Silicon (arm64) runner.
-          - runner: macos-13
-          - runner: macos-14
-    runs-on: ${{ matrix.runner }}
+    # Apple Silicon only. macos-14 is the oldest GA arm64 runner, and Homebrew
+    # uses a bottle tagged for any macOS <= the running one, so its arm64_sonoma
+    # bottle covers Sonoma and every newer macOS. Intel (x86_64) is intentionally
+    # unsupported — those Macs source-build, as does any Linux install.
+    runs-on: macos-14
     steps:
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@main
@@ -167,9 +161,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.bump.outputs.version }}
         run: |
-          # Both arch legs target the same Release; create-if-absent then upload
-          # --clobber. Each leg uploads only its own arch's file, so there is no
-          # cross-leg clobber even though they run concurrently.
+          # Create the Release if it doesn't exist yet, then upload --clobber so
+          # re-runs at the same version replace the asset cleanly.
           gh release view "paniolo-${VERSION}" --repo curtisgalloway/homebrew-tap \
             || gh release create "paniolo-${VERSION}" --repo curtisgalloway/homebrew-tap \
                  --latest=false \
@@ -182,7 +175,7 @@ jobs:
       - name: Stash bottle JSON for the merge job
         uses: actions/upload-artifact@v4
         with:
-          name: bottle-json-${{ matrix.runner }}
+          name: bottle-json
           path: "*.bottle.json"
           if-no-files-found: error
 
@@ -198,8 +191,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          pattern: bottle-json-*
-          merge-multiple: true
+          name: bottle-json
           path: bottle-json
 
       - name: Merge sha256s into the formula and commit
