@@ -108,6 +108,7 @@ jobs:
       - name: Commit the re-pin
         env:
           VERSION: ${{ steps.tag.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           if git diff --quiet -- Formula/paniolo.rb; then
             echo "Formula already pins ${VERSION} — nothing to commit."
@@ -116,10 +117,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "paniolo ${VERSION}: re-pin formula (automated)" -- Formula/paniolo.rb
-          # Explicit refspec: bare `git push` needs an upstream tracking ref,
-          # which isn't reliably set in the CI checkout (and setup-homebrew can
-          # clear it in the merge job).
-          git push origin HEAD:main
+          # Push to an explicit token URL: bare `git push` needs an upstream,
+          # and the CI checkout's credential helper isn't reliably present
+          # (setup-homebrew re-inits the workspace in the merge job). The token
+          # is the ephemeral GITHUB_TOKEN, auto-masked in logs and not persisted
+          # to .git/config (passed straight to push).
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
 
   bottle:
     name: bottle (apple silicon)
@@ -200,6 +203,7 @@ jobs:
       - name: Merge sha256s into the formula and commit
         env:
           VERSION: ${{ needs.bump.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           # setup-homebrew points curtisgalloway/tap at this checkout, so --merge
           # edits the formula in place (it resolves the file from the formula
@@ -222,6 +226,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "paniolo ${VERSION}: add bottles (automated)" -- Formula/paniolo.rb
-          # Explicit refspec: setup-homebrew's tap symlink leaves main without an
-          # upstream, so bare `git push` fails ("no upstream branch").
-          git push origin HEAD:main
+          # Push to an explicit token URL: setup-homebrew re-inits the workspace,
+          # dropping both the upstream ref and the checkout's credential helper,
+          # so `git push origin HEAD:main` fails to authenticate. The ephemeral
+          # GITHUB_TOKEN is auto-masked in logs and isn't persisted to config.
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
