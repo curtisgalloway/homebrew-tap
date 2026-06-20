@@ -12,16 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Re-pin Formula/paniolo.rb to a paniolo release tag and commit.
+# Re-pin Formula/paniolo.rb to a paniolo release tag, then build & attach
+# precompiled macOS bottles so `brew install` needs no Rust toolchain.
 #
 # Fired automatically by paniolo's release workflow via repository_dispatch
 # (event_type: paniolo-release, client_payload.tag = vX.Y.Z) once a Release is
 # published. Also runnable by hand (workflow_dispatch) with an optional tag —
-# omit it to pin whatever paniolo's latest release is, e.g. to catch the
-# formula up after enabling this.
+# omit it to pin/bottle whatever paniolo's latest release is.
 #
-# The commit uses the repo's own GITHUB_TOKEN (contents: write below); paniolo
-# only needs a credential to TRIGGER this, not to push here.
+# Pipeline (three jobs, run in order):
+#   bump   - re-pin url + source-tarball sha256, strip any stale bottle block,
+#            commit & push (ubuntu).
+#   bottle - on each macOS arch (Intel + Apple Silicon): source-build the
+#            re-pinned formula with --build-bottle, `brew bottle` it, and upload
+#            the tarball to a `paniolo-<version>` Release on THIS repo. The
+#            per-arch bottle JSON is stashed as a build artifact.
+#   merge  - download every bottle JSON, `brew bottle --merge` the sha256s into
+#            the formula, commit & push (ubuntu).
+#
+# All commits use the repo's own GITHUB_TOKEN (contents: write below); paniolo
+# only needs a credential to TRIGGER this, not to push here. Bottles live on
+# this repo's Releases, so no extra hosting credential is required either.
+#
+# A macOS version with no matching bottle (or any Linux install) still falls
+# back to the source build — `depends_on "rust" => :build` makes that automatic.
 
 name: Bump paniolo formula
 
@@ -40,6 +54,9 @@ permissions:
 jobs:
   bump:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      version: ${{ steps.tag.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -72,10 +89,23 @@ jobs:
             "s#/archive/refs/tags/v[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz#/archive/refs/tags/${TAG}.tar.gz#" \
             Formula/paniolo.rb
           sed -i -E "s#sha256 \"[0-9a-f]{64}\"#sha256 \"${sha}\"#" Formula/paniolo.rb
+          # Drop the previous version's bottle block: those tarballs are for the
+          # OLD version, so leaving the block would make this commit advertise
+          # bottles that 404 for the new version until `merge` runs. The block
+          # is line-delimited (`  bottle do` ... matching `  end`), so a simple
+          # state machine removes it without regex newline math; the `merge` job
+          # re-adds a correct one and `brew style --fix` tidies the whitespace.
+          awk '
+            /^  bottle do$/ { skip = 1; next }
+            skip == 1 && /^  end$/ { skip = 0; next }
+            skip == 1 { next }
+            { print }
+          ' Formula/paniolo.rb > Formula/paniolo.rb.tmp
+          mv Formula/paniolo.rb.tmp Formula/paniolo.rb
           echo "Formula now pins:"
           grep -E '  (url|sha256) ' Formula/paniolo.rb
 
-      - name: Commit the bump
+      - name: Commit the re-pin
         env:
           VERSION: ${{ steps.tag.outputs.version }}
         run: |
@@ -86,4 +116,109 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "paniolo ${VERSION}: re-pin formula (automated)" -- Formula/paniolo.rb
+          git push
+
+  bottle:
+    name: bottle (${{ matrix.runner }})
+    needs: bump
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Build on the OLDEST runner per arch: Homebrew uses a bottle tagged
+          # for any macOS <= the running one, so the older the build host, the
+          # wider the coverage. macos-13 = Intel (x86_64), macos-14 = the oldest
+          # GA Apple Silicon (arm64) runner.
+          - runner: macos-13
+          - runner: macos-14
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: Tap the re-pinned formula
+        run: |
+          brew tap curtisgalloway/tap https://github.com/curtisgalloway/homebrew-tap
+          # `bottle` needs `bump`, so main already carries the re-pin; pull is
+          # belt-and-suspenders in case the tap clone was cached older.
+          git -C "$(brew --repository curtisgalloway/tap)" pull --ff-only
+          git -C "$(brew --repository curtisgalloway/tap)" log -1 --oneline
+
+      - name: Build from source into the cellar
+        run: brew install --build-bottle --verbose curtisgalloway/tap/paniolo
+
+      - name: Bottle it
+        env:
+          VERSION: ${{ needs.bump.outputs.version }}
+        run: |
+          root="https://github.com/curtisgalloway/homebrew-tap/releases/download/paniolo-${VERSION}"
+          brew bottle --json --no-rebuild --root-url="$root" curtisgalloway/tap/paniolo
+          # `brew bottle` writes a double-dash local name; the canonical server
+          # name (and the URL brew derives) uses a single dash. Rename so the
+          # uploaded asset matches what `brew install` will request.
+          for f in paniolo--*.bottle.tar.gz; do mv "$f" "${f/--/-}"; done
+          ls -l paniolo-*.bottle.*
+
+      - name: Upload bottle tarball to the paniolo-${{ needs.bump.outputs.version }} Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.bump.outputs.version }}
+        run: |
+          # Both arch legs target the same Release; create-if-absent then upload
+          # --clobber. Each leg uploads only its own arch's file, so there is no
+          # cross-leg clobber even though they run concurrently.
+          gh release view "paniolo-${VERSION}" --repo curtisgalloway/homebrew-tap \
+            || gh release create "paniolo-${VERSION}" --repo curtisgalloway/homebrew-tap \
+                 --latest=false \
+                 --title "paniolo ${VERSION} bottles" \
+                 --notes "Precompiled Homebrew bottles for paniolo ${VERSION}." \
+            || true
+          gh release upload "paniolo-${VERSION}" --repo curtisgalloway/homebrew-tap \
+            --clobber paniolo-*.bottle.tar.gz
+
+      - name: Stash bottle JSON for the merge job
+        uses: actions/upload-artifact@v4
+        with:
+          name: bottle-json-${{ matrix.runner }}
+          path: "*.bottle.json"
+          if-no-files-found: error
+
+  merge:
+    name: merge bottle block into the formula
+    needs: [bump, bottle]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bottle-json-*
+          merge-multiple: true
+          path: bottle-json
+
+      - name: Merge sha256s into the formula and commit
+        env:
+          VERSION: ${{ needs.bump.outputs.version }}
+        run: |
+          brew tap curtisgalloway/tap https://github.com/curtisgalloway/homebrew-tap
+          tapdir="$(brew --repository curtisgalloway/tap)"
+          git -C "$tapdir" pull --ff-only
+          # --merge edits the TAPPED copy (resolved from the formula name inside
+          # each JSON); --no-all-checks skips the noarch "all" bottle logic that
+          # does not apply to a compiled formula.
+          brew bottle --merge --write --no-commit --no-all-checks bottle-json/*.bottle.json
+          brew style --fix curtisgalloway/tap/paniolo || true
+          cp "$tapdir/Formula/paniolo.rb" Formula/paniolo.rb
+          if git diff --quiet -- Formula/paniolo.rb; then
+            echo "No bottle changes to commit."
+            exit 0
+          fi
+          echo "Bottle block now:"
+          grep -nE '  (bottle do|root_url|sha256 cellar)' Formula/paniolo.rb || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "paniolo ${VERSION}: add bottles (automated)" -- Formula/paniolo.rb
           git push
