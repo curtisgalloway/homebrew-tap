@@ -134,15 +134,18 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@main
 
-      - name: Tap the re-pinned formula
+      - name: Confirm the tapped formula
         run: |
-          brew tap curtisgalloway/tap https://github.com/curtisgalloway/homebrew-tap
-          # `bottle` needs `bump`, so main already carries the re-pin; pull is
-          # belt-and-suspenders in case the tap clone was cached older.
-          git -C "$(brew --repository curtisgalloway/tap)" pull --ff-only
-          git -C "$(brew --repository curtisgalloway/tap)" log -1 --oneline
+          # setup-homebrew auto-taps this repo (the workflow runs inside it) and
+          # points curtisgalloway/tap at a fresh clone of main — which carries
+          # the re-pin, since `bottle` needs `bump`. So there's nothing to tap or
+          # pull by hand (a manual `git pull` fails: that clone has no upstream).
+          # Just confirm what we're about to bottle.
+          tapdir="$(brew --repository curtisgalloway/tap)"
+          git -C "$tapdir" log -1 --oneline || true
+          grep -E '^  (url|sha256) ' "$tapdir/Formula/paniolo.rb"
 
       - name: Build from source into the cellar
         run: brew install --build-bottle --verbose curtisgalloway/tap/paniolo
@@ -191,7 +194,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@main
 
       - uses: actions/download-artifact@v4
         with:
@@ -203,15 +206,18 @@ jobs:
         env:
           VERSION: ${{ needs.bump.outputs.version }}
         run: |
-          brew tap curtisgalloway/tap https://github.com/curtisgalloway/homebrew-tap
+          # setup-homebrew points curtisgalloway/tap at this checkout, so --merge
+          # edits the formula in place (it resolves the file from the formula
+          # name inside each JSON). --no-all-checks skips the noarch "all" bottle
+          # logic that doesn't apply to a compiled formula.
           tapdir="$(brew --repository curtisgalloway/tap)"
-          git -C "$tapdir" pull --ff-only
-          # --merge edits the TAPPED copy (resolved from the formula name inside
-          # each JSON); --no-all-checks skips the noarch "all" bottle logic that
-          # does not apply to a compiled formula.
           brew bottle --merge --write --no-commit --no-all-checks bottle-json/*.bottle.json
           brew style --fix curtisgalloway/tap/paniolo || true
-          cp "$tapdir/Formula/paniolo.rb" Formula/paniolo.rb
+          # If the tap resolved to a separate clone rather than this checkout,
+          # sync the edited formula back so the commit below picks it up.
+          if [ "$(readlink -f "$tapdir/Formula/paniolo.rb")" != "$(readlink -f Formula/paniolo.rb)" ]; then
+            cp "$tapdir/Formula/paniolo.rb" Formula/paniolo.rb
+          fi
           if git diff --quiet -- Formula/paniolo.rb; then
             echo "No bottle changes to commit."
             exit 0
