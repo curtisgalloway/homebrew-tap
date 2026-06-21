@@ -190,7 +190,15 @@ jobs:
     needs: [bump, bottle]
     runs-on: ubuntu-latest
     steps:
+      # ref: main, NOT the default github.sha. For a repository_dispatch the
+      # event SHA is main's tip *at dispatch time* — i.e. before the `bump` job
+      # pushed its re-pin commit. Checking that out would base the bottle-block
+      # commit on a stale tree and the push lands as non-fast-forward (rejected).
+      # `bump` has already pushed by the time `merge` runs (needs: bump), so
+      # main's tip carries the re-pin; base on it and the push fast-forwards.
       - uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@main
