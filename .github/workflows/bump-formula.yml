@@ -57,8 +57,15 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       version: ${{ steps.tag.outputs.version }}
+      # The commit `bottle` and `merge` must work from. See the "Pin the tap"
+      # steps below for why the event SHA is not good enough.
+      sha: ${{ steps.commit.outputs.sha }}
     steps:
+      # ref: main, not the default github.sha — for a repository_dispatch the
+      # event SHA is main's tip at dispatch time, which can already be behind.
       - uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Resolve target tag
         id: tag
@@ -106,12 +113,16 @@ jobs:
           grep -E '  (url|sha256) ' Formula/paniolo.rb
 
       - name: Commit the re-pin
+        id: commit
         env:
           VERSION: ${{ steps.tag.outputs.version }}
           GH_TOKEN: ${{ github.token }}
         run: |
           if git diff --quiet -- Formula/paniolo.rb; then
             echo "Formula already pins ${VERSION} — nothing to commit."
+            # Still publish a SHA: the downstream jobs pin the tap to it, and
+            # main's tip is what they should bottle/merge against.
+            echo "sha=$(git ls-remote origin refs/heads/main | cut -f1)" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git config user.name "github-actions[bot]"
@@ -123,6 +134,9 @@ jobs:
           # is the ephemeral GITHUB_TOKEN, auto-masked in logs and not persisted
           # to .git/config (passed straight to push).
           git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
+          # The push fast-forwarded main, so HEAD is now main's tip. Hand it to
+          # the downstream jobs so they work from exactly this tree.
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
   bottle:
     name: bottle (apple silicon)
@@ -136,16 +150,38 @@ jobs:
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@main
 
-      - name: Confirm the tapped formula
+      # Homebrew/actions/setup-homebrew taps this repo by fetching $GITHUB_SHA
+      # — main's tip at *dispatch* time, i.e. before `bump` pushed the re-pin —
+      # and it does so by re-initialising the job's workspace, so it also
+      # discards whatever actions/checkout put there. Left alone, the tap
+      # carries the PREVIOUS version's formula: `bottle` builds and uploads the
+      # old version under the new version's Release, and `merge` commits on a
+      # stale parent so its push is rejected as non-fast-forward. (Both
+      # happened on the 0.1.11 run.) Reset the tap onto the exact commit `bump`
+      # pushed; a bare SHA is fetchable from GitHub, which is how
+      # setup-homebrew itself fetches $GITHUB_SHA.
+      - name: Pin the tap to the re-pinned commit
+        env:
+          SHA: ${{ needs.bump.outputs.sha }}
         run: |
-          # setup-homebrew auto-taps this repo (the workflow runs inside it) and
-          # points curtisgalloway/tap at a fresh clone of main — which carries
-          # the re-pin, since `bottle` needs `bump`. So there's nothing to tap or
-          # pull by hand (a manual `git pull` fails: that clone has no upstream).
-          # Just confirm what we're about to bottle.
           tapdir="$(brew --repository curtisgalloway/tap)"
-          git -C "$tapdir" log -1 --oneline || true
+          git -C "$tapdir" fetch --force origin "$SHA"
+          git -C "$tapdir" reset --hard FETCH_HEAD
+          git -C "$tapdir" log -1 --oneline
+
+      - name: Confirm the tapped formula
+        env:
+          TAG: ${{ needs.bump.outputs.tag }}
+        run: |
+          tapdir="$(brew --repository curtisgalloway/tap)"
           grep -E '^  (url|sha256) ' "$tapdir/Formula/paniolo.rb"
+          # Hard-fail rather than bottle whatever the tap happens to hold: a
+          # stale tap is silent otherwise, and produces a bottle of the wrong
+          # version uploaded under this version's Release.
+          grep -qF "/archive/refs/tags/${TAG}.tar.gz" "$tapdir/Formula/paniolo.rb" || {
+            echo "::error::Tapped formula does not pin ${TAG}"
+            exit 1
+          }
 
       - name: Build from source into the cellar
         run: brew install --build-bottle --verbose curtisgalloway/tap/paniolo
@@ -161,6 +197,13 @@ jobs:
           # uploaded asset matches what `brew install` will request.
           for f in paniolo--*.bottle.tar.gz; do mv "$f" "${f/--/-}"; done
           ls -l paniolo-*.bottle.*
+          # The filename carries the version brew actually built. Belt-and-braces
+          # against uploading a mislabelled tarball to the paniolo-${VERSION}
+          # Release if anything upstream slipped a stale formula through.
+          ls "paniolo-${VERSION}".*.bottle.tar.gz >/dev/null 2>&1 || {
+            echo "::error::Built bottle is not version ${VERSION}"
+            exit 1
+          }
 
       - name: Upload bottle tarball to the paniolo-${{ needs.bump.outputs.version }} Release
         env:
@@ -190,18 +233,35 @@ jobs:
     needs: [bump, bottle]
     runs-on: ubuntu-latest
     steps:
-      # ref: main, NOT the default github.sha. For a repository_dispatch the
-      # event SHA is main's tip *at dispatch time* — i.e. before the `bump` job
-      # pushed its re-pin commit. Checking that out would base the bottle-block
-      # commit on a stale tree and the push lands as non-fast-forward (rejected).
-      # `bump` has already pushed by the time `merge` runs (needs: bump), so
-      # main's tip carries the re-pin; base on it and the push fast-forwards.
+      # ref: main, NOT the default github.sha — the event SHA predates `bump`'s
+      # re-pin commit. This alone is not enough: setup-homebrew re-inits the
+      # workspace right after, so the "Pin the tap" step below is what actually
+      # decides which tree we commit on.
       - uses: actions/checkout@v4
         with:
           ref: main
 
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@main
+
+      # Homebrew/actions/setup-homebrew taps this repo by fetching $GITHUB_SHA
+      # — main's tip at *dispatch* time, i.e. before `bump` pushed the re-pin —
+      # and it does so by re-initialising the job's workspace, so it also
+      # discards whatever actions/checkout put there. Left alone, the tap
+      # carries the PREVIOUS version's formula: `bottle` builds and uploads the
+      # old version under the new version's Release, and `merge` commits on a
+      # stale parent so its push is rejected as non-fast-forward. (Both
+      # happened on the 0.1.11 run.) Reset the tap onto the exact commit `bump`
+      # pushed; a bare SHA is fetchable from GitHub, which is how
+      # setup-homebrew itself fetches $GITHUB_SHA.
+      - name: Pin the tap to the re-pinned commit
+        env:
+          SHA: ${{ needs.bump.outputs.sha }}
+        run: |
+          tapdir="$(brew --repository curtisgalloway/tap)"
+          git -C "$tapdir" fetch --force origin "$SHA"
+          git -C "$tapdir" reset --hard FETCH_HEAD
+          git -C "$tapdir" log -1 --oneline
 
       - uses: actions/download-artifact@v4
         with:
@@ -238,4 +298,17 @@ jobs:
           # dropping both the upstream ref and the checkout's credential helper,
           # so `git push origin HEAD:main` fails to authenticate. The ephemeral
           # GITHUB_TOKEN is auto-masked in logs and isn't persisted to config.
-          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
+          # The commit is based on main's tip (see "Pin the tap"), so the first
+          # push normally fast-forwards; rebase and retry only covers a push
+          # that raced in while this job ran.
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          for attempt in 1 2 3; do
+            if git push "$remote" HEAD:main; then
+              exit 0
+            fi
+            echo "Push attempt ${attempt} rejected; rebasing onto main and retrying."
+            git fetch "$remote" main
+            git rebase FETCH_HEAD || { git rebase --abort; exit 1; }
+          done
+          echo "::error::Could not push the bottle block after 3 attempts."
+          exit 1

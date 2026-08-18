@@ -86,6 +86,20 @@ comparison: `brew reinstall --build-from-source paniolo`.
 - macOS is the tested platform. The `on_linux` build deps mirror paniolo's
   `make check-deps` list, but Linux-via-brew is untested — the README points
   Linux users at the .deb instead. No Linux bottles are built.
+- The `bottle` and `merge` jobs **must** reset the tap onto
+  `needs.bump.outputs.sha` before doing anything else (the "Pin the tap to the
+  re-pinned commit" step). `Homebrew/actions/setup-homebrew` taps this repo at
+  `$GITHUB_SHA` — main's tip when the dispatch fired, i.e. *before* `bump`
+  pushed the re-pin — and it does that by re-initialising the job workspace, so
+  it overrides `actions/checkout` too. Without the reset the pipeline works from
+  the previous version's formula: `bottle` builds the OLD version and uploads it
+  under the new version's Release, and `merge`'s push is rejected as
+  non-fast-forward. This is why `repository_dispatch` runs failed while a manual
+  `workflow_dispatch` re-run succeeded — on the re-run main's tip already
+  carried the re-pin, so `$GITHUB_SHA` happened to be right. Seen on 0.1.10
+  (a 0.1.9 bottle landed in the `paniolo-0.1.10` Release) and 0.1.11 (a 0.1.10
+  bottle in `paniolo-0.1.11`). The tag/filename guards in `bottle` now fail the
+  job loudly instead of shipping a mislabelled tarball.
 - Bottles are hosted on this repo's Releases under a `paniolo-<version>` tag
   (the formula's `bottle do` `root_url`). Don't delete those Releases — doing
   so makes `brew install` 404 the bottle and silently fall back to a source
