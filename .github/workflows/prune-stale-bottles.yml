@@ -1,0 +1,101 @@
+# Copyright 2026 Curtis Galloway
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Delete bottle tarballs sitting in the wrong Release.
+#
+# Invariant: a `paniolo-<version>` Release holds only bottles named
+# `paniolo-<version>.<tag>.bottle.tar.gz`. It got violated twice, when a stale
+# tap made bump-formula.yml's `bottle` job build the PREVIOUS version and upload
+# it under the new version's Release (a 0.1.9 bottle in `paniolo-0.1.10`, a
+# 0.1.10 bottle in `paniolo-0.1.11`). `gh release upload --clobber` cannot clear
+# those: the filename differs from the one a correct run writes, so the wrong
+# tarball just sits there alongside the right one.
+#
+# bump-formula.yml now refuses to upload a bottle whose filename doesn't carry
+# the target version, so this should have nothing left to do. It stays as a
+# manual audit: run it with apply=false to check the invariant across every
+# Release, apply=true to delete what it finds.
+#
+# Deliberately conservative — it only ever deletes an asset whose name parses as
+# a paniolo bottle AND whose version disagrees with its Release. Anything it
+# can't parse is reported and left alone.
+
+name: Prune mismatched bottle assets
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Delete the mismatches (unchecked = dry run, list only)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Audit every paniolo-<version> Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APPLY: ${{ inputs.apply }}
+        run: |
+          tags=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 200 \
+                   --json tagName -q '.[].tagName' | grep '^paniolo-' || true)
+          if [ -z "$tags" ]; then
+            echo "No paniolo-<version> Releases found."
+            exit 0
+          fi
+
+          mismatched=0
+          for tag in $tags; do
+            want="${tag#paniolo-}"
+            assets=$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" \
+                       --json assets -q '.assets[].name' || true)
+            for asset in $assets; do
+              case "$asset" in
+                *.bottle.tar.gz) ;;
+                *) continue ;;
+              esac
+              # Only touch names we fully understand. An asset that doesn't parse
+              # is somebody else's business, not ours.
+              if [[ ! "$asset" =~ ^paniolo-([0-9]+\.[0-9]+\.[0-9]+)(_[0-9]+)?\..+\.bottle\.tar\.gz$ ]]; then
+                echo "skip (unparseable): ${tag}/${asset}"
+                continue
+              fi
+              # Compare the base version only. A `revision N` bump bottles as
+              # `paniolo-<version>_N.<tag>.bottle.tar.gz` but still belongs to
+              # the plain `paniolo-<version>` Release, so the _N must not count
+              # as a mismatch.
+              got="${BASH_REMATCH[1]}"
+              if [ "$got" = "$want" ]; then
+                echo "ok:              ${tag}/${asset}"
+                continue
+              fi
+              mismatched=$((mismatched + 1))
+              echo "MISMATCH:        ${tag}/${asset} — is ${got}, Release is ${want}"
+              if [ "$APPLY" = "true" ]; then
+                gh release delete-asset "$tag" "$asset" --repo "$GITHUB_REPOSITORY" --yes
+                echo "                 deleted."
+              fi
+            done
+          done
+
+          echo
+          echo "Mismatched assets: ${mismatched}"
+          if [ "$APPLY" != "true" ] && [ "$mismatched" -gt 0 ]; then
+            echo "::notice::Dry run — re-run with apply checked to delete these."
+          fi

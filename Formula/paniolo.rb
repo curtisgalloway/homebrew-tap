@@ -65,8 +65,9 @@ class Paniolo < Formula
   def caveats
     <<~EOS
       Run `paniolo setup` once to finish platform setup (on macOS this
-      setuid-installs the netbootd BPF helper — one sudo prompt; re-run it
-      after `brew upgrade paniolo`, since an upgrade resets the setuid bit).
+      installs the netbootd BPF helper with its set-user-ID bit on — one
+      sudo prompt; re-run it after `brew upgrade paniolo`, since an upgrade
+      clears that bit).
 
       Helpers are private to paniolo in:
         #{opt_libexec}/bin
