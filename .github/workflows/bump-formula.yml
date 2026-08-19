@@ -89,9 +89,26 @@ jobs:
         env:
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
+          # pipefail is essential here, not decoration. The runner's shell is
+          # `bash -e` with pipefail OFF, so in `curl ... | sha256sum | cut` only
+          # `cut`'s status counts: a failed download (GitHub blip, rate limit,
+          # tag not published yet) exits 0 having hashed an EMPTY stream, and
+          # `sha` silently becomes sha256("") = e3b0c442... That bogus pin gets
+          # committed and pushed to main; the bottle job only fails later, on a
+          # checksum mismatch, by which point every source build is broken.
+          set -o pipefail
           url="https://github.com/curtisgalloway/paniolo/archive/refs/tags/${TAG}.tar.gz"
           echo "Hashing $url"
           sha=$(curl -fsSL "$url" | sha256sum | cut -d' ' -f1)
+          # Belt and braces in case sha256sum ever emits something unexpected.
+          if [ "$sha" = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" ]; then
+            echo "::error::Hashed an empty download for ${TAG}"
+            exit 1
+          fi
+          if [[ ! "$sha" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "::error::Not a sha256: '$sha'"
+            exit 1
+          fi
           sed -i -E \
             "s#/archive/refs/tags/v[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz#/archive/refs/tags/${TAG}.tar.gz#" \
             Formula/paniolo.rb
@@ -118,6 +135,9 @@ jobs:
           VERSION: ${{ steps.tag.outputs.version }}
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Same reason as the re-pin step: `git ls-remote | cut` below would
+          # otherwise hand downstream jobs an empty SHA on a network failure.
+          set -o pipefail
           if git diff --quiet -- Formula/paniolo.rb; then
             echo "Formula already pins ${VERSION} — nothing to commit."
             # Still publish a SHA: the downstream jobs pin the tap to it, and
