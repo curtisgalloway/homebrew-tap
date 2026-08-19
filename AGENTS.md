@@ -100,14 +100,15 @@ comparison: `brew reinstall --build-from-source paniolo`.
   (a 0.1.9 bottle landed in the `paniolo-0.1.10` Release) and 0.1.11 (a 0.1.10
   bottle in `paniolo-0.1.11`). The tag/filename guards in `bottle` now fail the
   job loudly instead of shipping a mislabelled tarball.
-- `brew style` flags `FormulaAudit/Caveats` on the caveat's `setuid` wording.
-  The wording is accurate — `paniolo setup` really does setuid-install the
-  netbootd BPF helper, and "an upgrade resets the setuid bit" is what makes the
-  re-run advice make sense — so the cop is disabled inline around
-  `def caveats` rather than the text reworded. Don't drop that directive
-  without rewording the caveat to match. (The merge job runs
-  `brew style --fix ... || true`, so this never failed a build; it just printed
-  misleading `##[error]` lines in otherwise-green runs.)
+- Keep the literal word `setuid` out of `def caveats`: `brew style`'s
+  `FormulaAudit/Caveats` cop flags it ("suggest `sudo`"), and the merge job runs
+  `brew style --fix ... || true`, so the offence never fails a build — it just
+  prints misleading `##[error]` lines in otherwise-green runs. The caveat says
+  "set-user-ID bit", which is the POSIX term chmod(2)/execve(2) use and is
+  precise about what `paniolo setup` does, while the "one sudo prompt" wording
+  gives the cop the `sudo` mention it's after. Reword around it rather than
+  reaching for a `rubocop:disable` (a directive that stops matching is itself an
+  offence under `Lint/RedundantCopDisableDirective`).
 - Bottles are hosted on this repo's Releases under a `paniolo-<version>` tag
   (the formula's `bottle do` `root_url`). Don't delete those Releases — doing
   so makes `brew install` 404 the bottle and silently fall back to a source
