@@ -271,6 +271,7 @@ jobs:
       - name: Merge sha256s into the formula and commit
         env:
           VERSION: ${{ needs.bump.outputs.version }}
+          TAG: ${{ needs.bump.outputs.tag }}
           GH_TOKEN: ${{ github.token }}
         run: |
           # setup-homebrew points curtisgalloway/tap at this checkout, so --merge
@@ -285,6 +286,14 @@ jobs:
           if [ "$(readlink -f "$tapdir/Formula/paniolo.rb")" != "$(readlink -f Formula/paniolo.rb)" ]; then
             cp "$tapdir/Formula/paniolo.rb" Formula/paniolo.rb
           fi
+          # Symmetric to the bottle job's guard, and independent of it: on the
+          # 0.1.11 run this job built a commit whose formula still pinned
+          # v0.1.10, and only the rejected push kept it off main. Check the tree
+          # we are about to commit really pins the tag this run is for.
+          grep -qF "/archive/refs/tags/${TAG}.tar.gz" Formula/paniolo.rb || {
+            echo "::error::Formula pins the wrong tag — expected ${TAG}; refusing to commit"
+            exit 1
+          }
           if git diff --quiet -- Formula/paniolo.rb; then
             echo "No bottle changes to commit."
             exit 0

@@ -62,6 +62,12 @@ class Paniolo < Formula
     end
   end
 
+  # FormulaAudit/Caveats wants `sudo` recommended instead of `setuid`, but
+  # setuid is literally what `paniolo setup` does to the netbootd BPF helper,
+  # and the fact that `brew upgrade` resets that bit is what makes the re-run
+  # advice necessary. The caveat already says the step costs one sudo prompt,
+  # so the cop's intent is met; drop the wording and users lose the reason.
+  # rubocop:disable FormulaAudit/Caveats
   def caveats
     <<~EOS
       Run `paniolo setup` once to finish platform setup (on macOS this
@@ -82,6 +88,7 @@ class Paniolo < Formula
         https://github.com/curtisgalloway/paniolo/releases
     EOS
   end
+  # rubocop:enable FormulaAudit/Caveats
 
   test do
     assert_match "paniolo", shell_output("#{bin}/paniolo --help")
