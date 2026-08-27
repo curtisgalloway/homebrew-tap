@@ -1,0 +1,108 @@
+# Copyright 2026 Curtis Galloway
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Re-pin Formula/oxbox.rb to an oxbox release tag.
+#
+# Fired automatically by oxbox's release workflow via repository_dispatch
+# (event_type: oxbox-release, client_payload.tag = vX.Y.Z) once a Release is
+# published. Also runnable by hand (workflow_dispatch) with an optional tag —
+# omit it to pin whatever oxbox's latest release is.
+#
+# Unlike the paniolo pipeline there are no bottle jobs: oxbox is pure Python
+# scripts, so a source install from the tarball is instant on every platform
+# and a bottle would add moving parts for nothing.
+
+name: Bump oxbox formula
+
+on:
+  repository_dispatch:
+    types: [oxbox-release]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "oxbox release tag to pin (e.g. v0.1.0); default = latest"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      # ref: main, not the default github.sha — for a repository_dispatch the
+      # event SHA is main's tip at dispatch time, which can already be behind.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Resolve target tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISPATCH_TAG: ${{ github.event.client_payload.tag }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          tag="${DISPATCH_TAG:-$INPUT_TAG}"
+          if [ -z "$tag" ]; then
+            tag=$(gh release view --repo curtisgalloway/oxbox --json tagName -q .tagName)
+          fi
+          case "$tag" in
+            v[0-9]*) ;;
+            *) echo "::error::Unexpected tag '$tag' (want vX.Y.Z)"; exit 1 ;;
+          esac
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Re-pin Formula/oxbox.rb to ${{ steps.tag.outputs.tag }}
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          # pipefail, or a failed download hashes an empty stream and the
+          # bogus sha256("") pin lands on main. Same lesson the paniolo bump
+          # learned the hard way; see bump-formula.yml.
+          set -o pipefail
+          url="https://github.com/curtisgalloway/oxbox/archive/refs/tags/${TAG}.tar.gz"
+          echo "Hashing $url"
+          sha=$(curl -fsSL "$url" | sha256sum | cut -d' ' -f1)
+          if [ "$sha" = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" ]; then
+            echo "::error::Hashed an empty download for ${TAG}"
+            exit 1
+          fi
+          if [[ ! "$sha" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "::error::Not a sha256: '$sha'"
+            exit 1
+          fi
+          sed -i -E \
+            "s#/archive/refs/tags/v[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz#/archive/refs/tags/${TAG}.tar.gz#" \
+            Formula/oxbox.rb
+          sed -i -E "s#sha256 \"[0-9a-f]{64}\"#sha256 \"${sha}\"#" Formula/oxbox.rb
+          echo "Formula now pins:"
+          grep -E '  (url|sha256) ' Formula/oxbox.rb
+
+      - name: Commit the re-pin
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet -- Formula/oxbox.rb; then
+            echo "Formula already pins ${VERSION} — nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "oxbox ${VERSION}: re-pin formula (automated)" -- Formula/oxbox.rb
+          # Explicit token URL for the same reason as the paniolo workflow:
+          # the ephemeral GITHUB_TOKEN, auto-masked, not persisted to config.
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
