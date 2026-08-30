@@ -31,6 +31,12 @@ class Oxbox < Formula
     # The seatbelt profile (macOS jail). oxbox resolves it exe-relative:
     # ../share/oxbox/jail.sb from the installed binary — see find_profile.
     (share/"oxbox").install "profiles/jail.sb"
+    # The ox-review skill, resolved the same exe-relative way by find_skill --
+    # ../share/oxbox/ox-review -- which all four tools carry a copy of. Without
+    # it every one of them refuses --skill, so a tap that ships only the four
+    # executables leaves a broken flag on a supported install path. The .deb
+    # ships it to /usr/share/oxbox/ox-review for the same reason.
+    (share/"oxbox").install ".claude/skills/ox-review"
     doc.install "README.md", "AGENTS.md"
   end
 
@@ -58,6 +64,15 @@ class Oxbox < Formula
     assert_match "oxapply 0", shell_output("#{bin}/oxapply --version")
     assert_match "oxseed 0", shell_output("#{bin}/oxseed --version")
     assert_path_exists share/"oxbox/jail.sb"
+    assert_path_exists share/"oxbox/ox-review/SKILL.md"
+    # --skill has to print the runbook with THIS prefix's script paths, or the
+    # commands an agent reads are commands it cannot run. find_skill/print_skill
+    # is duplicated per tool by design, so all four get asked.
+    %w[ox oxbox oxapply oxseed].each do |tool|
+      skill = shell_output("#{bin}/#{tool} --skill")
+      assert_match "name: ox-review", skill
+      assert_match((share/"oxbox/ox-review/scripts").to_s, skill)
+    end
     # The dry run needs no key or network and proves working-directory
     # anchoring: the log must land in testpath, not anywhere script-relative.
     system bin/"ox", "--mode", "ask", "--dry-run", "hello"
