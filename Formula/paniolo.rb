@@ -15,15 +15,11 @@
 class Paniolo < Formula
   desc "Agent-controlled target machine wrangler for distributed bring-up"
   homepage "https://github.com/curtisgalloway/paniolo"
-  url "https://github.com/curtisgalloway/paniolo/archive/refs/tags/v0.1.15.tar.gz"
-  sha256 "9e4f6fd6d61fcbe05e804b868fe737f95c6bf6a735a37617fe7cc26ffd64db5a"
+  url "https://github.com/curtisgalloway/paniolo/archive/refs/tags/v0.1.16.tar.gz"
+  sha256 "c027617eb20fea0174e4b5e076e3584e74ea6939aa7b62a9d8c0903203e55a8b"
   license "Apache-2.0"
   head "https://github.com/curtisgalloway/paniolo.git", branch: "main"
 
-  bottle do
-    root_url "https://github.com/curtisgalloway/homebrew-tap/releases/download/paniolo-0.1.15"
-    sha256 cellar: :any_skip_relocation, arm64_sonoma: "804fb19928e9832a2e0189cd360286c42a28277503754a12644ea20222f4b85c"
-  end
 
   depends_on "rust" => :build
 
