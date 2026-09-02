@@ -35,7 +35,7 @@ class Paniolo < Formula
     # exe-relative lookup (../libexec/bin from the resolved binary).
     system "cargo", "install", *std_cargo_args(path: "cli")
 
-    helpers = %w[hdmicap serialcap netbootd cambrionix hidrig ch9329 usbhub shellyplug]
+    helpers = %w[hdmicap serialcap netbootd cambrionix hidrig ch9329 shellyplug amt]
     helpers.each do |helper|
       system "cargo", "install", *std_cargo_args(root: libexec, path: helper)
     end
