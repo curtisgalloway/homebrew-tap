@@ -15,46 +15,101 @@
 class Paniolo < Formula
   desc "Agent-controlled target machine wrangler for distributed bring-up"
   homepage "https://github.com/curtisgalloway/paniolo"
-  url "https://github.com/curtisgalloway/paniolo/archive/refs/tags/v0.1.18.tar.gz"
-  sha256 "87bdc26713ba51d59881ac0627d83813bad3cfc6d46aca9eedb460ec042856d8"
+  version "0.1.18"
   license "Apache-2.0"
-  head "https://github.com/curtisgalloway/paniolo.git", branch: "main"
 
+  # --HEAD: build from a git checkout, for anyone hacking on paniolo itself.
+  # Only this spec needs a toolchain — the stable spec below never does. Must
+  # come before the on_macos/on_linux blocks: `brew style`'s ComponentsOrder
+  # cop wants `head` first among these top-level stanzas.
+  head do
+    url "https://github.com/curtisgalloway/paniolo.git", branch: "main"
 
-  depends_on "rust" => :build
+    depends_on "rust" => :build
+
+    on_linux do
+      depends_on "cmake" => :build
+      depends_on "nasm" => :build
+      depends_on "pkg-config" => :build
+    end
+  end
+
+  # Stable: pour the prebuilt, release-tested tarballs — no toolchain, no
+  # build. `scripts/repin.sh vX.Y.Z` rewrites this version and all three
+  # url/sha256 pairs on each release; see that script and AGENTS.md.
+  #
+  # The macOS tarball is a single universal (arm64 + x86_64) binary, so
+  # on_arm/on_intel below pin the *same* url/sha256 twice rather than once
+  # under a bare on_macos block: `brew style`'s ComponentsOrder cop rejects
+  # `url`/`sha256` as direct children of on_macos/on_linux (only on_arch,
+  # on_intel and a handful of other DSL calls are allowed there) — they must
+  # be one level deeper, under an on_arm/on_intel/on_system block. repin.sh
+  # rewrites both copies together, matched by filename, so they can't drift.
+  on_macos do
+    on_arm do
+      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.1.18/paniolo-0.1.18-macos-universal.tar.gz"
+      sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+    end
+    on_intel do
+      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.1.18/paniolo-0.1.18-macos-universal.tar.gz"
+      sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+    end
+  end
 
   on_linux do
-    depends_on "cmake" => :build
-    depends_on "nasm" => :build
-    depends_on "pkg-config" => :build
+    on_arm do
+      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.1.18/paniolo-0.1.18-linux-arm64.tar.gz"
+      sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+    end
+    on_intel do
+      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.1.18/paniolo-0.1.18-linux-amd64.tar.gz"
+      sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+    end
   end
 
   def install
-    # Only the CLI lands on PATH; the helpers are paniolo's private plumbing,
-    # installed into the keg's libexec/bin where the CLI finds them via its
-    # exe-relative lookup (../libexec/bin from the resolved binary).
-    system "cargo", "install", *std_cargo_args(path: "cli")
+    if build.head?
+      # Only the CLI lands on PATH; the helpers are paniolo's private plumbing,
+      # installed into the keg's libexec/bin where the CLI finds them via its
+      # exe-relative lookup (../libexec/bin from the resolved binary).
+      system "cargo", "install", *std_cargo_args(path: "cli")
 
-    helpers = %w[hdmicap serialcap netbootd cambrionix hidrig ch9329 shellyplug amt]
-    helpers.each do |helper|
-      system "cargo", "install", *std_cargo_args(root: libexec, path: helper)
-    end
+      helpers = %w[hdmicap serialcap netbootd cambrionix hidrig ch9329 shellyplug amt]
+      helpers.each do |helper|
+        system "cargo", "install", *std_cargo_args(root: libexec, path: helper)
+      end
 
-    if OS.mac?
-      system "swiftc", "-O", "-o", libexec/"bin/visionocr", "ocr/visionocr.swift"
+      if OS.mac?
+        system "swiftc", "-O", "-o", libexec/"bin/visionocr", "ocr/visionocr.swift"
+      else
+        (libexec/"bin").install "ocr/linuxocr"
+      end
+
+      # Bundled agent skills (`paniolo skill`): the CLI reads them from
+      # <keg>/share/paniolo/skills — the exe-relative share lookup in
+      # cli/src/skills.rs (canonicalizes the binary, so they must live in the
+      # keg, not just the opt-linked prefix). Mirror the repo's
+      # skills/<name>/SKILL.md layout. Globbed so new skills need no formula edit
+      # (unlike the .deb's nfpm manifest, which lists one entry per skill).
+      Dir["skills/*/SKILL.md"].each do |manifest|
+        name = File.basename(File.dirname(manifest))
+        (pkgshare/"skills"/name).install manifest
+      end
+    elsif OS.mac?
+      # macOS release tarball: already laid out exactly as the keg wants it —
+      # bin/, libexec/bin/, share/paniolo/skills/ — so this is a straight
+      # copy. Universal (arm64 + x86_64) binary, no arch split needed.
+      bin.install "bin/paniolo"
+      (libexec/"bin").install Dir["libexec/bin/*"]
+      (pkgshare/"skills").install Dir["share/paniolo/skills/*"]
     else
-      (libexec/"bin").install "ocr/linuxocr"
-    end
-
-    # Bundled agent skills (`paniolo skill`): the CLI reads them from
-    # <keg>/share/paniolo/skills — the exe-relative share lookup in
-    # cli/src/skills.rs (canonicalizes the binary, so they must live in the
-    # keg, not just the opt-linked prefix). Mirror the repo's
-    # skills/<name>/SKILL.md layout. Globbed so new skills need no formula edit
-    # (unlike the .deb's nfpm manifest, which lists one entry per skill).
-    Dir["skills/*/SKILL.md"].each do |manifest|
-      name = File.basename(File.dirname(manifest))
-      (share/"paniolo/skills"/name).install manifest
+      # Linux release tarball: flat — the CLI, every helper, and both OCR
+      # binaries sit next to each other with no bin/libexec split, and skills
+      # live under skills/ rather than share/paniolo/skills/.
+      bin.install "paniolo"
+      helpers = %w[hdmicap serialcap netbootd cambrionix hidrig ch9329 shellyplug amt linuxocr rapidocr]
+      (libexec/"bin").install helpers
+      (pkgshare/"skills").install Dir["skills/*"]
     end
   end
 
@@ -75,7 +130,9 @@ class Paniolo < Formula
       Bundled agent skills are available via `paniolo skill` (no arg lists
       them; a name prints that skill's SKILL.md).
 
-      Linux: prebuilt .debs on GitHub Releases are the better-tested path:
+      Linux: `brew install` pours the same prebuilt binaries as macOS — no
+      Rust toolchain needed. The .deb on GitHub Releases is an alternative if
+      you'd rather not use brew:
         https://github.com/curtisgalloway/paniolo/releases
     EOS
   end
@@ -83,7 +140,13 @@ class Paniolo < Formula
   test do
     assert_match "paniolo", shell_output("#{bin}/paniolo --help")
     assert_predicate libexec/"bin/serialcap", :executable?
-    assert_path_exists share/"paniolo/skills/paniolo/SKILL.md"
+    assert_path_exists pkgshare/"skills/paniolo/SKILL.md"
     assert_match "paniolo", shell_output("#{bin}/paniolo skill")
+
+    if OS.mac? && !build.head?
+      lipo_info = shell_output("lipo -info #{bin}/paniolo")
+      assert_match "x86_64", lipo_info
+      assert_match "arm64", lipo_info
+    end
   end
 end
