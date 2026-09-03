@@ -20,6 +20,10 @@ class Paniolo < Formula
   license "Apache-2.0"
   head "https://github.com/curtisgalloway/paniolo.git", branch: "main"
 
+  bottle do
+    root_url "https://github.com/curtisgalloway/homebrew-tap/releases/download/paniolo-0.1.17"
+    sha256 cellar: :any_skip_relocation, arm64_sonoma: "98b4b34839a892bf0482e2b3f09e7d292775465335ac918ab75b3e91afdd385e"
+  end
 
   depends_on "rust" => :build
 
