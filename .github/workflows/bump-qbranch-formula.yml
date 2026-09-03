@@ -1,0 +1,117 @@
+# SPDX-FileCopyrightText: 2026 Curtis Galloway
+# SPDX-License-Identifier: Apache-2.0
+
+# Re-pin Formula/qbranch.rb to a qbranch release: the version line and the
+# url/sha256 pair for each macOS architecture. The formula is a binary
+# formula pouring the release tarballs, so there is no bottle to build and
+# this is one job on Ubuntu; compare bump-formula.yml (paniolo), which
+# source-builds and bottles.
+#
+# Fired by qbranch's release workflow via repository_dispatch (event_type:
+# qbranch-release, client_payload.tag = vX.Y.Z) once the release is
+# published. Also runnable by hand (workflow_dispatch) with an optional tag;
+# omit it to pin qbranch's latest release.
+
+name: Bump qbranch formula
+
+on:
+  repository_dispatch:
+    types: [qbranch-release]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "qbranch release tag to pin (e.g. v0.3.1); default = latest"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # ref: main, not the default github.sha: for a repository_dispatch the
+      # event SHA is main's tip at dispatch time, which can already be behind.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: main
+
+      - name: Resolve target tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISPATCH_TAG: ${{ github.event.client_payload.tag }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          tag="${DISPATCH_TAG:-$INPUT_TAG}"
+          if [ -z "$tag" ]; then
+            tag=$(gh release view --repo curtisgalloway/qbranch --json tagName -q .tagName)
+          fi
+          # Strict: the tag is dispatched from another repo and lands in sed
+          # patterns below, so only digits and dots get through. Prereleases
+          # are refused on purpose; qbranch's release workflow does not
+          # dispatch them either.
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Unexpected tag '$tag' (want vX.Y.Z)"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Re-pin Formula/qbranch.rb to ${{ steps.tag.outputs.tag }}
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          # pipefail, or a failed download hashes an empty stream and the
+          # bogus sha256("") pin lands on main. Same lesson the paniolo bump
+          # learned the hard way; see bump-formula.yml.
+          set -o pipefail
+          base="https://github.com/curtisgalloway/qbranch/releases/download/${TAG}"
+          for target in aarch64-apple-darwin x86_64-apple-darwin; do
+            url="${base}/qbranch-${TAG}-${target}.tar.gz"
+            echo "Hashing $url"
+            sha=$(curl -fsSL "$url" | sha256sum | cut -d' ' -f1)
+            if [ "$sha" = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" ]; then
+              echo "::error::Hashed an empty download for ${url}"
+              exit 1
+            fi
+            if [[ ! "$sha" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "::error::Not a sha256: '$sha'"
+              exit 1
+            fi
+            # The url line for this target, then the sha256 line right after it.
+            sed -i -E \
+              "s#/releases/download/[^/]+/qbranch-[^/]+-${target}\.tar\.gz#/releases/download/${TAG}/qbranch-${TAG}-${target}.tar.gz#" \
+              Formula/qbranch.rb
+            sed -i -E \
+              "/qbranch-${TAG}-${target}\.tar\.gz/{n;s/sha256 \"[0-9a-f]{64}\"/sha256 \"${sha}\"/;}" \
+              Formula/qbranch.rb
+          done
+          sed -i -E "s/^  version \"[^\"]+\"/  version \"${VERSION}\"/" Formula/qbranch.rb
+          ruby -c Formula/qbranch.rb
+          echo "Formula now pins:"
+          grep -E '^\s+(version|url|sha256) ' Formula/qbranch.rb
+          # A sed that matched nothing leaves a stale pin behind a fresh
+          # version line; require both url lines to carry the new tag.
+          if [ "$(grep -c "qbranch-${TAG}-" Formula/qbranch.rb)" != "2" ]; then
+            echo "::error::expected both url lines to pin ${TAG}"
+            exit 1
+          fi
+
+      - name: Commit the re-pin
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet -- Formula/qbranch.rb; then
+            echo "Formula already pins ${VERSION}; nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "qbranch ${VERSION}: re-pin formula (automated)" -- Formula/qbranch.rb
+          # Explicit token URL for the same reason as the other bump workflows:
+          # the ephemeral GITHUB_TOKEN, auto-masked, not persisted to config.
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main

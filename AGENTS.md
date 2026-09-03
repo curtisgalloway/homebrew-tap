@@ -16,8 +16,8 @@ limitations under the License.
 
 # homebrew-tap — Agent Instructions
 
-Homebrew tap for paniolo (and future formulae). Users install with
-`brew install curtisgalloway/tap/paniolo`.
+Homebrew tap for paniolo, oxbox and qbranch. Users install with
+`brew install curtisgalloway/tap/<formula>`.
 
 ## Releasing a new paniolo version
 
@@ -57,6 +57,47 @@ After any bump, verify on a Mac: `brew update && brew upgrade paniolo` (a
 `Pouring paniolo--<ver>.<tag>.bottle.tar.gz` line confirms the bottle was used,
 not a source build), then `brew test paniolo`. To force the source path for
 comparison: `brew reinstall --build-from-source paniolo`.
+
+## Releasing a new qbranch version
+
+`Formula/qbranch.rb` is a **binary formula**: it pours the prebuilt tarball from
+the qbranch GitHub Release, one `url`/`sha256` pair per architecture inside
+`on_macos` / `on_arm` / `on_intel`, with no bottle, no `depends_on "rust"` and
+no `head`. Those tarballs were built and corpus-tested by qbranch's own release
+workflow, so the tap ships exactly what that workflow proved rather than a
+rebuild. Source builders use `cargo install qbranch`; Linux users take the
+`.deb` from the release. This differs from paniolo's pattern on purpose:
+paniolo has helper crates and per-platform OCR that need a source build, and
+qbranch is one static executable.
+
+The bump is one job. When qbranch's release workflow publishes a `vX.Y.Z`
+Release it fires `repository_dispatch` (`event_type: qbranch-release`) here, and
+`.github/workflows/bump-qbranch-formula.yml` hashes both macOS tarballs,
+rewrites the `version` line and both `url`/`sha256` pairs, checks with `ruby -c`
+that the formula still parses and that both url lines carry the new tag, and
+pushes to main. No macOS runner, no bottle Release, nothing to prune. It needs
+`HOMEBREW_TAP_DISPATCH_TOKEN` in the *qbranch* repo, the same fine-grained PAT
+with Contents:write on this repo that paniolo and oxbox hold. Manual or
+catch-up bump: run the **Bump qbranch formula** workflow (`workflow_dispatch`),
+tag blank for the latest release, or
+`gh workflow run bump-qbranch-formula.yml -f tag=vX.Y.Z`.
+
+Constraints specific to this formula:
+
+- The tag must be plain `vX.Y.Z`; the workflow refuses anything else, because
+  the tag lands in sed patterns and because a prerelease should not move every
+  brew user.
+- The `version` line is explicit and the bump rewrites it. The url/sha lines
+  are matched by their target name, and each sha256 line must stay directly
+  under its url line.
+- The install block guards the `skills/` install with `File.directory?`
+  because the 0.3.0 tarballs predate the `skills/` directory. From 0.3.1 every
+  tarball carries it, and the guard can go once the pin has moved past 0.3.0.
+- Changing the install block at an unchanged qbranch version needs a
+  `revision N` bump, for the same reason as paniolo.
+- Assets are named `qbranch-vX.Y.Z-<target>.tar.gz` and hold one top-level
+  directory, which Homebrew strips. Renaming the assets in qbranch's
+  `release.yml` breaks the bump's sed patterns; change both together.
 
 ## Constraints
 

@@ -33,6 +33,13 @@ Or in one step: `brew install curtisgalloway/tap/paniolo`.
 | Formula | Description |
 |---|---|
 | [`paniolo`](Formula/paniolo.rb) | Agent-controlled target machine wrangler — distributed bring-up control over SSH ([repo](https://github.com/curtisgalloway/paniolo)) |
+| [`qbranch`](Formula/qbranch.rb) | Outfits a machine's coding agents from a per-machine manifest ([repo](https://github.com/curtisgalloway/qbranch)) |
+
+`qbranch` is a binary formula: on Apple Silicon and Intel Macs alike it pours
+the prebuilt, corpus-tested binary from the qbranch release, so no toolchain is
+involved and nothing is built. macOS only; on Linux the `.deb` on
+[GitHub Releases](https://github.com/curtisgalloway/qbranch/releases) is the
+supported path, and `cargo install qbranch` covers a source build anywhere.
 
 `paniolo` installs the CLI on PATH with its helper daemons in the formula's
 private libexec. On **Apple Silicon** Macs it pours a **precompiled bottle** —
