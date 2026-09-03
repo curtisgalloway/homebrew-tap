@@ -48,22 +48,22 @@ class Paniolo < Formula
   on_macos do
     on_arm do
       url "https://github.com/curtisgalloway/paniolo/releases/download/v0.1.18/paniolo-0.1.18-macos-universal.tar.gz"
-      sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+      sha256 "c809f43769871f6272d810b35e122f6058b0c26642b79e9d331a5fd5fd0a376b"
     end
     on_intel do
       url "https://github.com/curtisgalloway/paniolo/releases/download/v0.1.18/paniolo-0.1.18-macos-universal.tar.gz"
-      sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+      sha256 "c809f43769871f6272d810b35e122f6058b0c26642b79e9d331a5fd5fd0a376b"
     end
   end
 
   on_linux do
     on_arm do
       url "https://github.com/curtisgalloway/paniolo/releases/download/v0.1.18/paniolo-0.1.18-linux-arm64.tar.gz"
-      sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+      sha256 "de16e4cd2ae1724f62947a02efb7e6a51ab14165e66e0fe763df8938c6c48a12"
     end
     on_intel do
       url "https://github.com/curtisgalloway/paniolo/releases/download/v0.1.18/paniolo-0.1.18-linux-amd64.tar.gz"
-      sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+      sha256 "903e65830f1abf10efc8bbcba795d881406c0ebc990b0b9dbdd676fcfe4ff091"
     end
   end
 
