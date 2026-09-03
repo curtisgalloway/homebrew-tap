@@ -1,41 +1,21 @@
-# Copyright 2026 Curtis Galloway
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-FileCopyrightText: 2026 Curtis Galloway
+# SPDX-License-Identifier: Apache-2.0
 
-# Re-pin Formula/paniolo.rb to a paniolo release tag, then build & attach
-# precompiled macOS bottles so `brew install` needs no Rust toolchain.
+# Re-pin Formula/paniolo.rb to a paniolo release tag.
+#
+# The formula is a binary formula: it pours the release's prebuilt tarballs
+# (see Formula/paniolo.rb), so the whole bump is one job — resolve the tag,
+# run scripts/repin.sh, commit, push. There is no source build, no bottle to
+# compile, and nothing to merge back in, unlike the three-job
+# bump/bottle/merge pipeline this replaced (see git history and
+# scripts/repin.sh for why: repin.sh downloads each asset's `.sha256`
+# sidecar rather than hashing a source tarball, and refuses to touch the
+# formula if a release is missing one).
 #
 # Fired automatically by paniolo's release workflow via repository_dispatch
-# (event_type: paniolo-release, client_payload.tag = vX.Y.Z) once a Release is
-# published. Also runnable by hand (workflow_dispatch) with an optional tag —
-# omit it to pin/bottle whatever paniolo's latest release is.
-#
-# Pipeline (three jobs, run in order):
-#   bump   - re-pin url + source-tarball sha256, strip any stale bottle block,
-#            commit & push (ubuntu).
-#   bottle - on Apple Silicon (macos-14): source-build the re-pinned formula
-#            with --build-bottle, `brew bottle` it, and upload the tarball to a
-#            `paniolo-<version>` Release on THIS repo. The bottle JSON is stashed
-#            as a build artifact.
-#   merge  - download the bottle JSON, `brew bottle --merge` the sha256 into the
-#            formula, commit & push (ubuntu).
-#
-# All commits use the repo's own GITHUB_TOKEN (contents: write below); paniolo
-# only needs a credential to TRIGGER this, not to push here. Bottles live on
-# this repo's Releases, so no extra hosting credential is required either.
-#
-# A macOS version with no matching bottle (or any Linux install) still falls
-# back to the source build — `depends_on "rust" => :build` makes that automatic.
+# (event_type: paniolo-release, client_payload.tag = vX.Y.Z) once a Release
+# is published. Also runnable by hand (workflow_dispatch) with an optional
+# tag — omit it to pin whatever paniolo's latest release is.
 
 name: Bump paniolo formula
 
@@ -45,7 +25,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "paniolo release tag to pin (e.g. v0.1.4); default = latest"
+        description: "paniolo release tag to pin (e.g. v0.1.18); default = latest"
         required: false
 
 permissions:
@@ -54,16 +34,11 @@ permissions:
 jobs:
   bump:
     runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.tag.outputs.tag }}
-      version: ${{ steps.tag.outputs.version }}
-      # The commit `bottle` and `merge` must work from. See the "Pin the tap"
-      # steps below for why the event SHA is not good enough.
-      sha: ${{ steps.commit.outputs.sha }}
+    timeout-minutes: 10
     steps:
       # ref: main, not the default github.sha — for a repository_dispatch the
       # event SHA is main's tip at dispatch time, which can already be behind.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           ref: main
 
@@ -85,259 +60,42 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
 
-      - name: Re-pin Formula/paniolo.rb to ${{ steps.tag.outputs.tag }}
+      - name: Re-pin the formula
         env:
+          GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.tag.outputs.tag }}
+        run: scripts/repin.sh "$TAG"
+
+      # Best-effort: most runners here won't have Homebrew installed (this
+      # job no longer needs it for anything else, unlike the old bottle
+      # job), so a missing `brew` just skips rather than failing the bump.
+      # `brew audit` refuses a bare path ("Calling `brew audit [path ...]`
+      # is disabled") — it needs the formula resolvable through a tap, which
+      # a plain checkout isn't, so only `brew style` (which takes a path)
+      # runs here. A maintainer can run the real audit locally against a
+      # tapped clone: `brew audit --strict --formula curtisgalloway/tap/paniolo`
+      # (see AGENTS.md).
+      - name: brew style (best effort)
         run: |
-          # pipefail is essential here, not decoration. The runner's shell is
-          # `bash -e` with pipefail OFF, so in `curl ... | sha256sum | cut` only
-          # `cut`'s status counts: a failed download (GitHub blip, rate limit,
-          # tag not published yet) exits 0 having hashed an EMPTY stream, and
-          # `sha` silently becomes sha256("") = e3b0c442... That bogus pin gets
-          # committed and pushed to main; the bottle job only fails later, on a
-          # checksum mismatch, by which point every source build is broken.
-          set -o pipefail
-          url="https://github.com/curtisgalloway/paniolo/archive/refs/tags/${TAG}.tar.gz"
-          echo "Hashing $url"
-          sha=$(curl -fsSL "$url" | sha256sum | cut -d' ' -f1)
-          # Belt and braces in case sha256sum ever emits something unexpected.
-          if [ "$sha" = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" ]; then
-            echo "::error::Hashed an empty download for ${TAG}"
-            exit 1
+          if ! command -v brew >/dev/null 2>&1; then
+            echo "::notice::Homebrew not installed on this runner; skipping brew style."
+            exit 0
           fi
-          if [[ ! "$sha" =~ ^[0-9a-f]{64}$ ]]; then
-            echo "::error::Not a sha256: '$sha'"
-            exit 1
-          fi
-          sed -i -E \
-            "s#/archive/refs/tags/v[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz#/archive/refs/tags/${TAG}.tar.gz#" \
-            Formula/paniolo.rb
-          sed -i -E "s#sha256 \"[0-9a-f]{64}\"#sha256 \"${sha}\"#" Formula/paniolo.rb
-          # Drop the previous version's bottle block: those tarballs are for the
-          # OLD version, so leaving the block would make this commit advertise
-          # bottles that 404 for the new version until `merge` runs. The block
-          # is line-delimited (`  bottle do` ... matching `  end`), so a simple
-          # state machine removes it without regex newline math; the `merge` job
-          # re-adds a correct one and `brew style --fix` tidies the whitespace.
-          awk '
-            /^  bottle do$/ { skip = 1; next }
-            skip == 1 && /^  end$/ { skip = 0; next }
-            skip == 1 { next }
-            { print }
-          ' Formula/paniolo.rb > Formula/paniolo.rb.tmp
-          mv Formula/paniolo.rb.tmp Formula/paniolo.rb
-          echo "Formula now pins:"
-          grep -E '  (url|sha256) ' Formula/paniolo.rb
+          brew style Formula/paniolo.rb
 
       - name: Commit the re-pin
-        id: commit
         env:
           VERSION: ${{ steps.tag.outputs.version }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Same reason as the re-pin step: `git ls-remote | cut` below would
-          # otherwise hand downstream jobs an empty SHA on a network failure.
-          set -o pipefail
           if git diff --quiet -- Formula/paniolo.rb; then
             echo "Formula already pins ${VERSION} — nothing to commit."
-            # Still publish a SHA: the downstream jobs pin the tap to it, and
-            # main's tip is what they should bottle/merge against.
-            echo "sha=$(git ls-remote origin refs/heads/main | cut -f1)" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "paniolo ${VERSION}: re-pin formula (automated)" -- Formula/paniolo.rb
           # Push to an explicit token URL: bare `git push` needs an upstream,
-          # and the CI checkout's credential helper isn't reliably present
-          # (setup-homebrew re-inits the workspace in the merge job). The token
-          # is the ephemeral GITHUB_TOKEN, auto-masked in logs and not persisted
-          # to .git/config (passed straight to push).
+          # and the ephemeral GITHUB_TOKEN is auto-masked in logs and isn't
+          # persisted to .git/config (passed straight to push).
           git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
-          # The push fast-forwarded main, so HEAD is now main's tip. Hand it to
-          # the downstream jobs so they work from exactly this tree.
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-
-  bottle:
-    name: bottle (apple silicon)
-    needs: bump
-    # Apple Silicon only. macos-14 is the oldest GA arm64 runner, and Homebrew
-    # uses a bottle tagged for any macOS <= the running one, so its arm64_sonoma
-    # bottle covers Sonoma and every newer macOS. Intel (x86_64) is intentionally
-    # unsupported — those Macs source-build, as does any Linux install.
-    runs-on: macos-14
-    steps:
-      - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@main
-
-      # Homebrew/actions/setup-homebrew taps this repo by fetching $GITHUB_SHA
-      # — main's tip at *dispatch* time, i.e. before `bump` pushed the re-pin —
-      # and it does so by re-initialising the job's workspace, so it also
-      # discards whatever actions/checkout put there. Left alone, the tap
-      # carries the PREVIOUS version's formula: `bottle` builds and uploads the
-      # old version under the new version's Release, and `merge` commits on a
-      # stale parent so its push is rejected as non-fast-forward. (Both
-      # happened on the 0.1.11 run.) Reset the tap onto the exact commit `bump`
-      # pushed; a bare SHA is fetchable from GitHub, which is how
-      # setup-homebrew itself fetches $GITHUB_SHA.
-      - name: Pin the tap to the re-pinned commit
-        env:
-          SHA: ${{ needs.bump.outputs.sha }}
-        run: |
-          tapdir="$(brew --repository curtisgalloway/tap)"
-          git -C "$tapdir" fetch --force origin "$SHA"
-          git -C "$tapdir" reset --hard FETCH_HEAD
-          git -C "$tapdir" log -1 --oneline
-
-      - name: Confirm the tapped formula
-        env:
-          TAG: ${{ needs.bump.outputs.tag }}
-        run: |
-          tapdir="$(brew --repository curtisgalloway/tap)"
-          grep -E '^  (url|sha256) ' "$tapdir/Formula/paniolo.rb"
-          # Hard-fail rather than bottle whatever the tap happens to hold: a
-          # stale tap is silent otherwise, and produces a bottle of the wrong
-          # version uploaded under this version's Release.
-          grep -qF "/archive/refs/tags/${TAG}.tar.gz" "$tapdir/Formula/paniolo.rb" || {
-            echo "::error::Tapped formula does not pin ${TAG}"
-            exit 1
-          }
-
-      - name: Build from source into the cellar
-        run: brew install --build-bottle --verbose curtisgalloway/tap/paniolo
-
-      - name: Bottle it
-        env:
-          VERSION: ${{ needs.bump.outputs.version }}
-        run: |
-          root="https://github.com/curtisgalloway/homebrew-tap/releases/download/paniolo-${VERSION}"
-          brew bottle --json --no-rebuild --root-url="$root" curtisgalloway/tap/paniolo
-          # `brew bottle` writes a double-dash local name; the canonical server
-          # name (and the URL brew derives) uses a single dash. Rename so the
-          # uploaded asset matches what `brew install` will request.
-          for f in paniolo--*.bottle.tar.gz; do mv "$f" "${f/--/-}"; done
-          ls -l paniolo-*.bottle.*
-          # The filename carries the version brew actually built. Belt-and-braces
-          # against uploading a mislabelled tarball to the paniolo-${VERSION}
-          # Release if anything upstream slipped a stale formula through.
-          ls "paniolo-${VERSION}".*.bottle.tar.gz >/dev/null 2>&1 || {
-            echo "::error::Built bottle is not version ${VERSION}"
-            exit 1
-          }
-
-      - name: Upload bottle tarball to the paniolo-${{ needs.bump.outputs.version }} Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.bump.outputs.version }}
-        run: |
-          # Create the Release if it doesn't exist yet, then upload --clobber so
-          # re-runs at the same version replace the asset cleanly.
-          gh release view "paniolo-${VERSION}" --repo curtisgalloway/homebrew-tap \
-            || gh release create "paniolo-${VERSION}" --repo curtisgalloway/homebrew-tap \
-                 --latest=false \
-                 --title "paniolo ${VERSION} bottles" \
-                 --notes "Precompiled Homebrew bottles for paniolo ${VERSION}." \
-            || true
-          gh release upload "paniolo-${VERSION}" --repo curtisgalloway/homebrew-tap \
-            --clobber paniolo-*.bottle.tar.gz
-
-      - name: Stash bottle JSON for the merge job
-        uses: actions/upload-artifact@v4
-        with:
-          name: bottle-json
-          path: "*.bottle.json"
-          if-no-files-found: error
-
-  merge:
-    name: merge bottle block into the formula
-    needs: [bump, bottle]
-    runs-on: ubuntu-latest
-    steps:
-      # ref: main, NOT the default github.sha — the event SHA predates `bump`'s
-      # re-pin commit. This alone is not enough: setup-homebrew re-inits the
-      # workspace right after, so the "Pin the tap" step below is what actually
-      # decides which tree we commit on.
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-
-      - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@main
-
-      # Homebrew/actions/setup-homebrew taps this repo by fetching $GITHUB_SHA
-      # — main's tip at *dispatch* time, i.e. before `bump` pushed the re-pin —
-      # and it does so by re-initialising the job's workspace, so it also
-      # discards whatever actions/checkout put there. Left alone, the tap
-      # carries the PREVIOUS version's formula: `bottle` builds and uploads the
-      # old version under the new version's Release, and `merge` commits on a
-      # stale parent so its push is rejected as non-fast-forward. (Both
-      # happened on the 0.1.11 run.) Reset the tap onto the exact commit `bump`
-      # pushed; a bare SHA is fetchable from GitHub, which is how
-      # setup-homebrew itself fetches $GITHUB_SHA.
-      - name: Pin the tap to the re-pinned commit
-        env:
-          SHA: ${{ needs.bump.outputs.sha }}
-        run: |
-          tapdir="$(brew --repository curtisgalloway/tap)"
-          git -C "$tapdir" fetch --force origin "$SHA"
-          git -C "$tapdir" reset --hard FETCH_HEAD
-          git -C "$tapdir" log -1 --oneline
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: bottle-json
-          path: bottle-json
-
-      - name: Merge sha256s into the formula and commit
-        env:
-          VERSION: ${{ needs.bump.outputs.version }}
-          TAG: ${{ needs.bump.outputs.tag }}
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          # setup-homebrew points curtisgalloway/tap at this checkout, so --merge
-          # edits the formula in place (it resolves the file from the formula
-          # name inside each JSON). --no-all-checks skips the noarch "all" bottle
-          # logic that doesn't apply to a compiled formula.
-          tapdir="$(brew --repository curtisgalloway/tap)"
-          brew bottle --merge --write --no-commit --no-all-checks bottle-json/*.bottle.json
-          brew style --fix curtisgalloway/tap/paniolo || true
-          # If the tap resolved to a separate clone rather than this checkout,
-          # sync the edited formula back so the commit below picks it up.
-          if [ "$(readlink -f "$tapdir/Formula/paniolo.rb")" != "$(readlink -f Formula/paniolo.rb)" ]; then
-            cp "$tapdir/Formula/paniolo.rb" Formula/paniolo.rb
-          fi
-          # Symmetric to the bottle job's guard, and independent of it: on the
-          # 0.1.11 run this job built a commit whose formula still pinned
-          # v0.1.10, and only the rejected push kept it off main. Check the tree
-          # we are about to commit really pins the tag this run is for.
-          grep -qF "/archive/refs/tags/${TAG}.tar.gz" Formula/paniolo.rb || {
-            echo "::error::Formula pins the wrong tag — expected ${TAG}; refusing to commit"
-            exit 1
-          }
-          if git diff --quiet -- Formula/paniolo.rb; then
-            echo "No bottle changes to commit."
-            exit 0
-          fi
-          echo "Bottle block now:"
-          grep -nE '  (bottle do|root_url|sha256 cellar)' Formula/paniolo.rb || true
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "paniolo ${VERSION}: add bottles (automated)" -- Formula/paniolo.rb
-          # Push to an explicit token URL: setup-homebrew re-inits the workspace,
-          # dropping both the upstream ref and the checkout's credential helper,
-          # so `git push origin HEAD:main` fails to authenticate. The ephemeral
-          # GITHUB_TOKEN is auto-masked in logs and isn't persisted to config.
-          # The commit is based on main's tip (see "Pin the tap"), so the first
-          # push normally fast-forwards; rebase and retry only covers a push
-          # that raced in while this job ran.
-          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          for attempt in 1 2 3; do
-            if git push "$remote" HEAD:main; then
-              exit 0
-            fi
-            echo "Push attempt ${attempt} rejected; rebasing onto main and retrying."
-            git fetch "$remote" main
-            git rebase FETCH_HEAD || { git rebase --abort; exit 1; }
-          done
-          echo "::error::Could not push the bottle block after 3 attempts."
-          exit 1
