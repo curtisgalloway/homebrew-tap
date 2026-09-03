@@ -33,6 +33,7 @@ Or in one step: `brew install curtisgalloway/tap/paniolo`.
 | Formula | Description |
 |---|---|
 | [`paniolo`](Formula/paniolo.rb) | Agent-controlled target machine wrangler — distributed bring-up control over SSH ([repo](https://github.com/curtisgalloway/paniolo)) |
+| [`oxbox`](Formula/oxbox.rb) | Supervised harness for running an untrusted LLM against real code ([repo](https://github.com/curtisgalloway/oxbox)) |
 | [`qbranch`](Formula/qbranch.rb) | Outfits a machine's coding agents from a per-machine manifest ([repo](https://github.com/curtisgalloway/qbranch)) |
 
 `qbranch` is a binary formula: on Apple Silicon and Intel Macs alike it pours
