@@ -42,16 +42,35 @@ involved and nothing is built. macOS only; on Linux the `.deb` on
 [GitHub Releases](https://github.com/curtisgalloway/qbranch/releases) is the
 supported path, and `cargo install qbranch` covers a source build anywhere.
 
-`paniolo` installs the CLI on PATH with its helper daemons in the formula's
-private libexec. On **Apple Silicon** Macs it pours a **precompiled bottle** —
-no Rust toolchain required (an `arm64` bottle is published with each release).
-On a macOS newer than the build host Homebrew uses the newest compatible
-bottle; if none matches it falls back to building from source (Rust is pulled
-in automatically as a build-only dep).
+`paniolo` is a **binary formula**: `brew install` pours the prebuilt tarball
+from the paniolo release — a universal (Apple Silicon + Intel) binary on
+macOS, an arch-matched binary on Linux — with no Rust toolchain and no build
+step, on either platform. `brew install --HEAD` is the exception: it builds
+from a git checkout for anyone hacking on paniolo itself, and only that spec
+needs Rust (plus `cmake`/`nasm`/`pkg-config` on Linux).
 
-On **Intel** Macs and on **Linux** there are no bottles — `brew install` builds
-from source. Linux users are better served by the prebuilt `.deb`s on
-[GitHub Releases](https://github.com/curtisgalloway/paniolo/releases).
+Each release asset ships with a `.sha256` sidecar file (plain
+`sha256sum`-format text) alongside it on
+[GitHub Releases](https://github.com/curtisgalloway/paniolo/releases); the
+formula's `sha256` lines are copied straight from those, not computed by
+hand. To re-pin the formula to a new paniolo release yourself:
+
+```bash
+scripts/repin.sh vX.Y.Z
+```
+
+It downloads the three sidecars, checks each one is well-formed, and rewrites
+`Formula/paniolo.rb`'s `version` and all three `url`/`sha256` pairs in place
+(the macOS pair appears twice, once under `on_arm` and once under
+`on_intel`, since one universal binary covers both — see the formula's
+comments). It refuses to touch the formula if any sidecar is missing, which
+is normal for a release that predates this scheme or hasn't finished
+publishing yet. `.github/workflows/bump-formula.yml` runs the same script
+automatically on every paniolo release.
+
+There are no bottles any more — a prebuilt binary formula has nothing left
+for a bottle to precompile. The `paniolo-<ver>` Releases on this repo that
+used to host them are stale and can be deleted at leisure.
 
 ## License
 
