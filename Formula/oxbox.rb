@@ -15,8 +15,8 @@
 class Oxbox < Formula
   desc "Supervised harness for running an untrusted LLM against real code"
   homepage "https://github.com/curtisgalloway/oxbox"
-  url "https://github.com/curtisgalloway/oxbox/archive/refs/tags/v0.5.0.tar.gz"
-  sha256 "d05cc058246aea2b2e36e9c4572d080900c624c341f178e4779f6aa5b2d79555"
+  url "https://github.com/curtisgalloway/oxbox/archive/refs/tags/v0.6.0.tar.gz"
+  sha256 "378380331cc1a6014b5fb4f07c72cb6ed4b64ffcc0380f87596e22c4c6dcb9d0"
   license "Apache-2.0"
   head "https://github.com/curtisgalloway/oxbox.git", branch: "main"
 
