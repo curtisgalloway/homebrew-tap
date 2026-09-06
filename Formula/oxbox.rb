@@ -33,7 +33,7 @@ class Oxbox < Formula
     # share/ into the prefix but never libexec/, and helper_dirs resolves the
     # symlink before walking up. `oxbox <sub>` execs oxbox-<sub>;
     # `oxbox helper <sub>` runs one directly.
-    (libexec/"bin").install "oxbox-sandbox", "oxbox-ask", "oxbox-apply", "oxbox-jail"
+    (libexec/"bin").install "oxbox-sandbox", "oxbox-send", "oxbox-patch", "oxbox-jail"
     # The seatbelt profile (macOS jail). oxbox resolves it exe-relative:
     # ../share/oxbox/jail.sb from the installed binary — see find_profile.
     (share/"oxbox").install "profiles/jail.sb"
@@ -49,7 +49,7 @@ class Oxbox < Formula
   def caveats
     <<~EOS
       The tools are pure Python (3.9+, the system python3 works) and operate
-      on the current directory: oxbox sandbox builds ./sandbox, oxbox ask
+      on the current directory: oxbox sandbox builds ./sandbox, oxbox send
       logs to ./logs, oxbox jail runs in ./sandbox/work — stand in your
       project directory. Only oxbox is on PATH; `oxbox helper` lists the
       scripts it runs for you.
@@ -71,11 +71,11 @@ class Oxbox < Formula
     # Through the front door: each subcommand has to find its helper in the
     # keg's libexec from the linked bin/oxbox, which is the lookup this
     # formula's layout exists to satisfy.
-    assert_match "oxbox-ask 0", shell_output("#{bin}/oxbox ask --version")
-    assert_match "oxbox-apply 0", shell_output("#{bin}/oxbox apply --version")
+    assert_match "oxbox-send 0", shell_output("#{bin}/oxbox send --version")
+    assert_match "oxbox-patch 0", shell_output("#{bin}/oxbox patch --version")
     assert_match "oxbox-sandbox 0", shell_output("#{bin}/oxbox sandbox --version")
     assert_match "oxbox-jail 0", shell_output("#{bin}/oxbox jail --version")
-    assert_match "oxbox-ask 0", shell_output("#{bin}/oxbox helper ask --version")
+    assert_match "oxbox-send 0", shell_output("#{bin}/oxbox helper send --version")
     assert_path_exists share/"oxbox/jail.sb"
     assert_path_exists share/"oxbox/ox-review/SKILL.md"
     # --skill has to print the runbook with THIS prefix's script paths, or the
@@ -84,8 +84,8 @@ class Oxbox < Formula
     forms = {
       "oxbox"   => "--skill",
       "sandbox" => "helper sandbox --skill",
-      "ask"     => "helper ask --skill",
-      "apply"   => "helper apply --skill",
+      "send"     => "helper send --skill",
+      "patch"   => "helper patch --skill",
       "jail"    => "helper jail --skill",
     }
     forms.each do |tool, form|
@@ -96,7 +96,7 @@ class Oxbox < Formula
     # The dry run needs no key or network and proves working-directory
     # anchoring: the log must land in testpath, not anywhere script-relative.
     # --model is explicit because no venue carries a default.
-    system bin/"oxbox", "ask", "--model", "smoke-test", "--mode", "ask", "--dry-run", "hello"
+    system bin/"oxbox", "send", "--model", "smoke-test", "--mode", "ask", "--dry-run", "hello"
     assert_predicate testpath/"logs", :directory?
   end
 end
