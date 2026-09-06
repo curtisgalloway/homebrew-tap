@@ -28,12 +28,12 @@ class Oxbox < Formula
 
   def install
     bin.install "oxbox"
-    # The helpers live off PATH, in the keg's libexec. oxbox finds them at
+    # The scripts live off PATH, in the keg's libexec. oxbox finds them at
     # ../libexec/bin from its own real location -- Homebrew links bin/ and
     # share/ into the prefix but never libexec/, and helper_dirs resolves the
-    # symlink before walking up. `oxbox seed`, `oxbox ask` and `oxbox apply`
-    # run them; `oxbox helper <name>` runs one directly.
-    (libexec/"bin").install "ox", "oxapply", "oxseed"
+    # symlink before walking up. `oxbox <sub>` execs oxbox-<sub>;
+    # `oxbox helper <sub>` runs one directly.
+    (libexec/"bin").install "oxbox-sandbox", "oxbox-ask", "oxbox-apply", "oxbox-jail"
     # The seatbelt profile (macOS jail). oxbox resolves it exe-relative:
     # ../share/oxbox/jail.sb from the installed binary — see find_profile.
     (share/"oxbox").install "profiles/jail.sb"
@@ -49,10 +49,10 @@ class Oxbox < Formula
   def caveats
     <<~EOS
       The tools are pure Python (3.9+, the system python3 works) and operate
-      on the current directory: oxbox seed builds ./sandbox, oxbox ask logs
-      to ./logs, oxbox run jails into ./sandbox/work — stand in your project
-      directory. Only oxbox is on PATH; `oxbox helper` lists the scripts it
-      runs for you.
+      on the current directory: oxbox sandbox builds ./sandbox, oxbox ask
+      logs to ./logs, oxbox jail runs in ./sandbox/work — stand in your
+      project directory. Only oxbox is on PATH; `oxbox helper` lists the
+      scripts it runs for you.
 
       The jail verification suites assert against a source checkout's layout;
       to verify the jail on this machine:
@@ -71,10 +71,11 @@ class Oxbox < Formula
     # Through the front door: each subcommand has to find its helper in the
     # keg's libexec from the linked bin/oxbox, which is the lookup this
     # formula's layout exists to satisfy.
-    assert_match "ox 0", shell_output("#{bin}/oxbox ask --version")
-    assert_match "oxapply 0", shell_output("#{bin}/oxbox apply --version")
-    assert_match "oxseed 0", shell_output("#{bin}/oxbox seed --version")
-    assert_match "ox 0", shell_output("#{bin}/oxbox helper ox --version")
+    assert_match "oxbox-ask 0", shell_output("#{bin}/oxbox ask --version")
+    assert_match "oxbox-apply 0", shell_output("#{bin}/oxbox apply --version")
+    assert_match "oxbox-sandbox 0", shell_output("#{bin}/oxbox sandbox --version")
+    assert_match "oxbox-jail 0", shell_output("#{bin}/oxbox jail --version")
+    assert_match "oxbox-ask 0", shell_output("#{bin}/oxbox helper ask --version")
     assert_path_exists share/"oxbox/jail.sb"
     assert_path_exists share/"oxbox/ox-review/SKILL.md"
     # --skill has to print the runbook with THIS prefix's script paths, or the
@@ -82,9 +83,10 @@ class Oxbox < Formula
     # is duplicated per tool by design, so all four get asked.
     forms = {
       "oxbox"   => "--skill",
-      "ox"      => "helper ox --skill",
-      "oxapply" => "helper oxapply --skill",
-      "oxseed"  => "helper oxseed --skill",
+      "sandbox" => "helper sandbox --skill",
+      "ask"     => "helper ask --skill",
+      "apply"   => "helper apply --skill",
+      "jail"    => "helper jail --skill",
     }
     forms.each do |tool, form|
       skill = shell_output("#{bin}/oxbox #{form}")
