@@ -52,6 +52,9 @@ class Oxbox < Formula
     # for the same reason.
     pkgshare.install ".claude/skills/ox-review"
     doc.install "README.md", "AGENTS.md"
+    # The comparison page, under docs/ beside the README so the README's
+    # relative link resolves; guarded because the 0.7.0 tarball predates it.
+    (doc/"docs").install "docs/comparison.md" if File.exist?("docs/comparison.md")
   end
 
   def front_door?
