@@ -27,7 +27,13 @@ class Oxbox < Formula
   end
 
   def install
-    bin.install "ox", "oxbox", "oxapply", "oxseed"
+    bin.install "oxbox"
+    # The helpers live off PATH, in the keg's libexec. oxbox finds them at
+    # ../libexec/bin from its own real location -- Homebrew links bin/ and
+    # share/ into the prefix but never libexec/, and helper_dirs resolves the
+    # symlink before walking up. `oxbox seed`, `oxbox ask` and `oxbox apply`
+    # run them; `oxbox helper <name>` runs one directly.
+    (libexec/"bin").install "ox", "oxapply", "oxseed"
     # The seatbelt profile (macOS jail). oxbox resolves it exe-relative:
     # ../share/oxbox/jail.sb from the installed binary — see find_profile.
     (share/"oxbox").install "profiles/jail.sb"
@@ -43,8 +49,10 @@ class Oxbox < Formula
   def caveats
     <<~EOS
       The tools are pure Python (3.9+, the system python3 works) and operate
-      on the current directory: oxseed builds ./sandbox, ox logs to ./logs,
-      oxbox jails into ./sandbox/work — stand in your project directory.
+      on the current directory: oxbox seed builds ./sandbox, oxbox ask logs
+      to ./logs, oxbox run jails into ./sandbox/work — stand in your project
+      directory. Only oxbox is on PATH; `oxbox helper` lists the scripts it
+      runs for you.
 
       The jail verification suites assert against a source checkout's layout;
       to verify the jail on this machine:
@@ -59,23 +67,34 @@ class Oxbox < Formula
   end
 
   test do
-    assert_match "ox 0", shell_output("#{bin}/ox --version")
     assert_match "oxbox 0", shell_output("#{bin}/oxbox --version")
-    assert_match "oxapply 0", shell_output("#{bin}/oxapply --version")
-    assert_match "oxseed 0", shell_output("#{bin}/oxseed --version")
+    # Through the front door: each subcommand has to find its helper in the
+    # keg's libexec from the linked bin/oxbox, which is the lookup this
+    # formula's layout exists to satisfy.
+    assert_match "ox 0", shell_output("#{bin}/oxbox ask --version")
+    assert_match "oxapply 0", shell_output("#{bin}/oxbox apply --version")
+    assert_match "oxseed 0", shell_output("#{bin}/oxbox seed --version")
+    assert_match "ox 0", shell_output("#{bin}/oxbox helper ox --version")
     assert_path_exists share/"oxbox/jail.sb"
     assert_path_exists share/"oxbox/ox-review/SKILL.md"
     # --skill has to print the runbook with THIS prefix's script paths, or the
     # commands an agent reads are commands it cannot run. find_skill/print_skill
     # is duplicated per tool by design, so all four get asked.
-    %w[ox oxbox oxapply oxseed].each do |tool|
-      skill = shell_output("#{bin}/#{tool} --skill")
-      assert_match "name: ox-review", skill
-      assert_match((share/"oxbox/ox-review/scripts").to_s, skill)
+    forms = {
+      "oxbox"   => "--skill",
+      "ox"      => "helper ox --skill",
+      "oxapply" => "helper oxapply --skill",
+      "oxseed"  => "helper oxseed --skill",
+    }
+    forms.each do |tool, form|
+      skill = shell_output("#{bin}/oxbox #{form}")
+      assert_match "name: ox-review", skill, "#{tool} --skill"
+      assert_match((share/"oxbox/ox-review/scripts").to_s, skill, "#{tool} --skill")
     end
     # The dry run needs no key or network and proves working-directory
     # anchoring: the log must land in testpath, not anywhere script-relative.
-    system bin/"ox", "--mode", "ask", "--dry-run", "hello"
+    # --model is explicit because no venue carries a default.
+    system bin/"oxbox", "ask", "--model", "smoke-test", "--mode", "ask", "--dry-run", "hello"
     assert_predicate testpath/"logs", :directory?
   end
 end
