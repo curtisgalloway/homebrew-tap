@@ -42,11 +42,11 @@ class Oxbox < Formula
   on_macos do
     on_arm do
       url "https://github.com/curtisgalloway/oxbox/releases/download/v1.0.0/oxbox-1.0.0-macos-universal.tar.gz"
-      sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+      sha256 "19dbeaf2618193aad97f27a4a9ee1c73eddea0cc9ab1f67f8406ae46c53b95f6"
     end
     on_intel do
       url "https://github.com/curtisgalloway/oxbox/releases/download/v1.0.0/oxbox-1.0.0-macos-universal.tar.gz"
-      sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+      sha256 "19dbeaf2618193aad97f27a4a9ee1c73eddea0cc9ab1f67f8406ae46c53b95f6"
     end
   end
 
@@ -57,11 +57,11 @@ class Oxbox < Formula
 
     on_arm do
       url "https://github.com/curtisgalloway/oxbox/releases/download/v1.0.0/oxbox-1.0.0-linux-arm64.tar.gz"
-      sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+      sha256 "8639d6752785e95810f9251e7ebc27ea61f355c45d68aa5cf656b1b26ca65cf7"
     end
     on_intel do
       url "https://github.com/curtisgalloway/oxbox/releases/download/v1.0.0/oxbox-1.0.0-linux-amd64.tar.gz"
-      sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+      sha256 "ef591ff6a51f214a095dedfc5c1a1609b6768b67f97fed3680b364ceaf4cb46f"
     end
   end
 
