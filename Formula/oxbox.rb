@@ -103,15 +103,15 @@ class Oxbox < Formula
     assert_path_exists pkgshare/"jail.sb"
     assert_path_exists pkgshare/"ox-review/SKILL.md"
     if front_door?
-      assert_match "oxbox 0", shell_output("#{bin}/oxbox --version")
+      assert_match "oxbox #{version}", shell_output("#{bin}/oxbox --version")
       # Through the front door: each subcommand has to find its script in the
       # keg's libexec from the linked bin/oxbox, which is the lookup this
       # formula's layout exists to satisfy.
-      assert_match "oxbox-send 0", shell_output("#{bin}/oxbox send --version")
-      assert_match "oxbox-patch 0", shell_output("#{bin}/oxbox patch --version")
-      assert_match "oxbox-sandbox 0", shell_output("#{bin}/oxbox sandbox --version")
-      assert_match "oxbox-jail 0", shell_output("#{bin}/oxbox jail --version")
-      assert_match "oxbox-send 0", shell_output("#{bin}/oxbox helper send --version")
+      assert_match "oxbox-send #{version}", shell_output("#{bin}/oxbox send --version")
+      assert_match "oxbox-patch #{version}", shell_output("#{bin}/oxbox patch --version")
+      assert_match "oxbox-sandbox #{version}", shell_output("#{bin}/oxbox sandbox --version")
+      assert_match "oxbox-jail #{version}", shell_output("#{bin}/oxbox jail --version")
+      assert_match "oxbox-send #{version}", shell_output("#{bin}/oxbox helper send --version")
       # --skill has to print the runbook with THIS prefix's script paths, or
       # the commands an agent reads are commands it cannot run.
       # find_skill/print_skill is duplicated per tool by design, so all five
@@ -134,7 +134,7 @@ class Oxbox < Formula
       system bin/"oxbox", "send", "--model", "smoke-test", "--mode", "ask", "--dry-run", "hello"
     else
       assert_match "ox 0", shell_output("#{bin}/ox --version")
-      assert_match "oxbox 0", shell_output("#{bin}/oxbox --version")
+      assert_match "oxbox #{version}", shell_output("#{bin}/oxbox --version")
       assert_match "oxapply 0", shell_output("#{bin}/oxapply --version")
       assert_match "oxseed 0", shell_output("#{bin}/oxseed --version")
       %w[ox oxbox oxapply oxseed].each do |tool|
