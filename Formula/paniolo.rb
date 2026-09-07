@@ -15,7 +15,7 @@
 class Paniolo < Formula
   desc "Agent-controlled target machine wrangler for distributed bring-up"
   homepage "https://github.com/curtisgalloway/paniolo"
-  version "0.1.18"
+  version "0.1.19"
   license "Apache-2.0"
 
   # --HEAD: build from a git checkout, for anyone hacking on paniolo itself.
@@ -47,23 +47,23 @@ class Paniolo < Formula
   # rewrites both copies together, matched by filename, so they can't drift.
   on_macos do
     on_arm do
-      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.1.18/paniolo-0.1.18-macos-universal.tar.gz"
-      sha256 "c809f43769871f6272d810b35e122f6058b0c26642b79e9d331a5fd5fd0a376b"
+      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.1.19/paniolo-0.1.19-macos-universal.tar.gz"
+      sha256 "8356f16cd8d7cf66679faa2362ca877a8fcb893d0d0c78edf2639cab9f77bad5"
     end
     on_intel do
-      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.1.18/paniolo-0.1.18-macos-universal.tar.gz"
-      sha256 "c809f43769871f6272d810b35e122f6058b0c26642b79e9d331a5fd5fd0a376b"
+      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.1.19/paniolo-0.1.19-macos-universal.tar.gz"
+      sha256 "8356f16cd8d7cf66679faa2362ca877a8fcb893d0d0c78edf2639cab9f77bad5"
     end
   end
 
   on_linux do
     on_arm do
-      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.1.18/paniolo-0.1.18-linux-arm64.tar.gz"
-      sha256 "de16e4cd2ae1724f62947a02efb7e6a51ab14165e66e0fe763df8938c6c48a12"
+      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.1.19/paniolo-0.1.19-linux-arm64.tar.gz"
+      sha256 "57ccd01f347eb2c55e5fde4e1501184a54e0767abfb88c6c3cff8f339643a6e0"
     end
     on_intel do
-      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.1.18/paniolo-0.1.18-linux-amd64.tar.gz"
-      sha256 "903e65830f1abf10efc8bbcba795d881406c0ebc990b0b9dbdd676fcfe4ff091"
+      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.1.19/paniolo-0.1.19-linux-amd64.tar.gz"
+      sha256 "864aecf0e075ad8e33c682b7ca18d84d15ca0c3f3152d76021f1a3aa4f7dedff"
     end
   end
 
