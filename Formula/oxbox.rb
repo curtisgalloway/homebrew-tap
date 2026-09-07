@@ -15,7 +15,7 @@
 class Oxbox < Formula
   desc "Supervised harness for running an untrusted LLM against real code"
   homepage "https://github.com/curtisgalloway/oxbox"
-  version "1.0.1"
+  version "1.1.0"
   license "Apache-2.0"
 
   # --HEAD: build the Rust workspace from a git checkout, for anyone hacking
@@ -41,12 +41,12 @@ class Oxbox < Formula
   # copies together, matched by filename, so they cannot drift.
   on_macos do
     on_arm do
-      url "https://github.com/curtisgalloway/oxbox/releases/download/v1.0.1/oxbox-1.0.1-macos-universal.tar.gz"
-      sha256 "d20e010b40e0d4b2eff616ca4d9a18974a0eee24e707bd49002d5d77dff8d07d"
+      url "https://github.com/curtisgalloway/oxbox/releases/download/v1.1.0/oxbox-1.1.0-macos-universal.tar.gz"
+      sha256 "f016c0bcc7abf5b57cb6899bc3b87f08775cd3813a9b83aeae5731aaaebcef19"
     end
     on_intel do
-      url "https://github.com/curtisgalloway/oxbox/releases/download/v1.0.1/oxbox-1.0.1-macos-universal.tar.gz"
-      sha256 "d20e010b40e0d4b2eff616ca4d9a18974a0eee24e707bd49002d5d77dff8d07d"
+      url "https://github.com/curtisgalloway/oxbox/releases/download/v1.1.0/oxbox-1.1.0-macos-universal.tar.gz"
+      sha256 "f016c0bcc7abf5b57cb6899bc3b87f08775cd3813a9b83aeae5731aaaebcef19"
     end
   end
 
@@ -56,12 +56,12 @@ class Oxbox < Formula
     depends_on "bubblewrap"
 
     on_arm do
-      url "https://github.com/curtisgalloway/oxbox/releases/download/v1.0.1/oxbox-1.0.1-linux-arm64.tar.gz"
-      sha256 "9efa2032be847642c3c791b255d72541eae40864ff46db7e7d6697d9a20c7150"
+      url "https://github.com/curtisgalloway/oxbox/releases/download/v1.1.0/oxbox-1.1.0-linux-arm64.tar.gz"
+      sha256 "9f7137a2fd8b3f2e5948ec40cb7f3f2c2c7aa93fff9d21210a42053a65fc510f"
     end
     on_intel do
-      url "https://github.com/curtisgalloway/oxbox/releases/download/v1.0.1/oxbox-1.0.1-linux-amd64.tar.gz"
-      sha256 "81788ed6d47fbfb6196be7ee4f5caf4eb9c29f58ff701a4d3c8eb106c8e10f92"
+      url "https://github.com/curtisgalloway/oxbox/releases/download/v1.1.0/oxbox-1.1.0-linux-amd64.tar.gz"
+      sha256 "e965bbed2e799dd67ee6f1c4ea02313ae11ffff2fa0f25868b26943fd7bd6af9"
     end
   end
 
