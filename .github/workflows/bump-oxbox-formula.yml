@@ -19,9 +19,9 @@
 # published. Also runnable by hand (workflow_dispatch) with an optional tag —
 # omit it to pin whatever oxbox's latest release is.
 #
-# Unlike the paniolo pipeline there are no bottle jobs: oxbox is pure Python
-# scripts, so a source install from the tarball is instant on every platform
-# and a bottle would add moving parts for nothing.
+# Like the paniolo pipeline: oxbox's release publishes prebuilt tarballs
+# (macOS universal, Linux amd64, Linux arm64) with sha256 sidecars, and the
+# formula pours them, so the bump is scripts/repin.sh with REPIN_PROJECT=oxbox.
 
 name: Bump oxbox formula
 
@@ -43,7 +43,7 @@ jobs:
     steps:
       # ref: main, not the default github.sha — for a repository_dispatch the
       # event SHA is main's tip at dispatch time, which can already be behind.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           ref: main
 
@@ -65,31 +65,21 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
 
-      - name: Re-pin Formula/oxbox.rb to ${{ steps.tag.outputs.tag }}
+      - name: Re-pin the formula
         env:
+          GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.tag.outputs.tag }}
+          REPIN_PROJECT: oxbox
+        run: scripts/repin.sh "$TAG"
+
+      # Best effort, as in bump-formula.yml: a runner without brew skips.
+      - name: brew style (best effort)
         run: |
-          # pipefail, or a failed download hashes an empty stream and the
-          # bogus sha256("") pin lands on main. Same lesson the paniolo bump
-          # learned the hard way; see bump-formula.yml.
-          set -o pipefail
-          url="https://github.com/curtisgalloway/oxbox/archive/refs/tags/${TAG}.tar.gz"
-          echo "Hashing $url"
-          sha=$(curl -fsSL "$url" | sha256sum | cut -d' ' -f1)
-          if [ "$sha" = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" ]; then
-            echo "::error::Hashed an empty download for ${TAG}"
-            exit 1
+          if ! command -v brew >/dev/null 2>&1; then
+            echo "::notice::Homebrew not installed on this runner; skipping brew style."
+            exit 0
           fi
-          if [[ ! "$sha" =~ ^[0-9a-f]{64}$ ]]; then
-            echo "::error::Not a sha256: '$sha'"
-            exit 1
-          fi
-          sed -i -E \
-            "s#/archive/refs/tags/v[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz#/archive/refs/tags/${TAG}.tar.gz#" \
-            Formula/oxbox.rb
-          sed -i -E "s#sha256 \"[0-9a-f]{64}\"#sha256 \"${sha}\"#" Formula/oxbox.rb
-          echo "Formula now pins:"
-          grep -E '  (url|sha256) ' Formula/oxbox.rb
+          brew style Formula/oxbox.rb
 
       - name: Commit the re-pin
         env:
