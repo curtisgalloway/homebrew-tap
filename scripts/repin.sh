@@ -2,13 +2,19 @@
 # SPDX-FileCopyrightText: 2026 Curtis Galloway
 # SPDX-License-Identifier: Apache-2.0
 #
-# Re-pin Formula/paniolo.rb to a paniolo release: rewrites the version line
-# and the url/sha256 pair for each of the three stable-spec assets (macOS
-# universal, Linux arm64, Linux amd64). The formula is a binary formula that
-# pours release tarballs, so this is the whole bump — no bottle build, no
-# source-hash computation.
+# Re-pin a binary formula to a release: rewrites the version line and the
+# url/sha256 pair for each of the three stable-spec assets (macOS universal,
+# Linux arm64, Linux amd64). The formula pours release tarballs, so this is
+# the whole bump — no bottle build, no source-hash computation.
 #
 # Usage: scripts/repin.sh vX.Y.Z
+#        REPIN_PROJECT=oxbox scripts/repin.sh vX.Y.Z
+#
+# REPIN_PROJECT names the project (default paniolo): the GitHub repo is
+# curtisgalloway/<project>, the formula is Formula/<project>.rb, and the
+# assets are <project>-<version>-<suffix>.tar.gz. paniolo and oxbox publish
+# the same three suffixes with the same sha256 sidecars, so one script
+# serves both.
 #
 # Verifies each asset's `.sha256` sidecar before writing anything: if a
 # release is missing one (as every release through v0.1.17 is, since the
@@ -43,9 +49,10 @@ if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 fi
 version="${tag#v}"
 
-repo="curtisgalloway/paniolo"
+project="${REPIN_PROJECT:-paniolo}"
+repo="curtisgalloway/${project}"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-formula="${script_dir}/../Formula/paniolo.rb"
+formula="${script_dir}/../Formula/${project}.rb"
 rewrite_script="${script_dir}/repin_rewrite.py"
 
 if [ ! -f "$formula" ]; then
@@ -58,9 +65,9 @@ trap 'rm -rf "$workdir"' EXIT
 
 # suffix (matched against the formula's existing url lines by
 # repin_rewrite.py) : full release asset filename for this tag/version.
-asset_macos="paniolo-${version}-macos-universal.tar.gz"
-asset_linux_arm64="paniolo-${version}-linux-arm64.tar.gz"
-asset_linux_amd64="paniolo-${version}-linux-amd64.tar.gz"
+asset_macos="${project}-${version}-macos-universal.tar.gz"
+asset_linux_arm64="${project}-${version}-linux-arm64.tar.gz"
+asset_linux_amd64="${project}-${version}-linux-amd64.tar.gz"
 
 # Downloads <asset>.sha256 into workdir, from REPIN_SIDECAR_DIR if set
 # (testing path, no network) or otherwise from the release (production
@@ -118,4 +125,4 @@ python3 "$rewrite_script" "$formula" \
   --asset "linux-arm64.tar.gz" "${base_url}/${asset_linux_arm64}" "$sha_linux_arm64" \
   --asset "linux-amd64.tar.gz" "${base_url}/${asset_linux_amd64}" "$sha_linux_amd64"
 
-echo "Done. Formula/paniolo.rb now pins ${tag}."
+echo "Done. Formula/${project}.rb now pins ${tag}."

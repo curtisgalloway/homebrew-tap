@@ -15,137 +15,143 @@
 class Oxbox < Formula
   desc "Supervised harness for running an untrusted LLM against real code"
   homepage "https://github.com/curtisgalloway/oxbox"
-  url "https://github.com/curtisgalloway/oxbox/archive/refs/tags/v0.7.0.tar.gz"
-  sha256 "21b5f24f33a3a451fa64bb46c5753dfa5a1f6668b8b353170d29d4aa7913b461"
+  version "1.0.0"
   license "Apache-2.0"
-  head "https://github.com/curtisgalloway/oxbox.git", branch: "main"
+
+  # --HEAD: build the Rust workspace from a git checkout, for anyone hacking
+  # on oxbox itself. Only this spec needs a toolchain; the stable spec below
+  # never does. Must come before the on_macos/on_linux blocks: `brew style`'s
+  # ComponentsOrder cop wants `head` first among these top-level stanzas.
+  head do
+    url "https://github.com/curtisgalloway/oxbox.git", branch: "main"
+
+    depends_on "rust" => :build
+  end
+
+  # Stable: pour the prebuilt, release-tested tarballs -- no toolchain, no
+  # build. `REPIN_PROJECT=oxbox scripts/repin.sh vX.Y.Z` rewrites this
+  # version and all the url/sha256 pairs on each release, after verifying
+  # each asset's `.sha256` sidecar on the release; see that script.
+  #
+  # The macOS tarball is a single universal (arm64 + x86_64) build, so
+  # on_arm/on_intel below pin the *same* url/sha256 twice rather than once
+  # under a bare on_macos block: `brew style`'s ComponentsOrder cop rejects
+  # `url`/`sha256` as direct children of on_macos/on_linux -- they must be
+  # one level deeper, under an on_arm/on_intel block. repin.sh rewrites both
+  # copies together, matched by filename, so they cannot drift.
+  on_macos do
+    on_arm do
+      url "https://github.com/curtisgalloway/oxbox/releases/download/v1.0.0/oxbox-1.0.0-macos-universal.tar.gz"
+      sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+    end
+    on_intel do
+      url "https://github.com/curtisgalloway/oxbox/releases/download/v1.0.0/oxbox-1.0.0-macos-universal.tar.gz"
+      sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+    end
+  end
 
   on_linux do
-    # The Linux jail backend. Without it oxbox refuses to run — deliberately,
+    # The Linux jail backend. Without it oxbox refuses to run -- deliberately,
     # there is no "best effort" mode.
     depends_on "bubblewrap"
+
+    on_arm do
+      url "https://github.com/curtisgalloway/oxbox/releases/download/v1.0.0/oxbox-1.0.0-linux-arm64.tar.gz"
+      sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+    end
+    on_intel do
+      url "https://github.com/curtisgalloway/oxbox/releases/download/v1.0.0/oxbox-1.0.0-linux-amd64.tar.gz"
+      sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+    end
   end
 
   def install
-    # Two layouts, one formula. From the release after 0.6.0, oxbox is the one
-    # command and the four scripts it runs live off PATH in the keg's libexec:
-    # oxbox finds them at ../libexec/bin from its own real location (Homebrew
-    # links bin/ and share/ into the prefix but never libexec/, and
-    # helper_dirs resolves the symlink before walking up); `oxbox <sub>` execs
-    # oxbox-<sub> and `oxbox helper <sub>` runs one directly. Up to 0.6.0 the
-    # tarball has four tools that all go on PATH. Keying on the file rather
-    # than the version lets this land ahead of the release and survive the
-    # automated re-pin unchanged.
-    if File.exist?("oxbox-send")
-      bin.install "oxbox"
-      (libexec/"bin").install "oxbox-sandbox", "oxbox-send", "oxbox-patch", "oxbox-jail"
+    if build.head?
+      # oxbox is the one command on PATH; the four helpers it runs live off
+      # PATH in the keg's libexec/bin, where oxbox finds them at ../libexec/bin
+      # from its own real location (Homebrew links bin/ and share/ into the
+      # prefix but never libexec/, and helper_dirs resolves the symlink before
+      # walking up). `oxbox <sub>` execs oxbox-<sub>; `oxbox helper <sub>`
+      # runs one directly.
+      system "cargo", "install", *std_cargo_args(path: "crates/oxbox")
+      %w[oxbox-sandbox oxbox-send oxbox-patch oxbox-jail].each do |helper|
+        system "cargo", "install", *std_cargo_args(root: libexec, path: "crates/#{helper}")
+      end
+      # The seatbelt profile (macOS jail) and the ox-review skill, resolved
+      # from the executable: ../share/oxbox from bin, or two levels up from
+      # libexec/bin. Without the skill every tool refuses --skill.
+      pkgshare.install "profiles/jail.sb"
+      pkgshare.install ".claude/skills/ox-review"
+      doc.install "README.md", "AGENTS.md"
+      (doc/"docs").install "docs/comparison.md"
     else
-      bin.install "ox", "oxbox", "oxapply", "oxseed"
+      # The release tarballs are laid out exactly as the keg wants them --
+      # bin/, libexec/bin/, share/oxbox/, share/doc/oxbox/ -- on macOS and
+      # Linux alike, so this is a straight copy.
+      bin.install "bin/oxbox"
+      (libexec/"bin").install Dir["libexec/bin/*"]
+      pkgshare.install Dir["share/oxbox/*"]
+      doc.install Dir["share/doc/oxbox/*"]
     end
-    # The seatbelt profile (macOS jail), resolved from the script: ../share/oxbox
-    # from bin, or two levels up from libexec/bin — see find_profile.
-    pkgshare.install "profiles/jail.sb"
-    # The ox-review skill, resolved the same script-relative way by find_skill,
-    # which every tool carries a copy of. Without it every one of them refuses
-    # --skill, so a tap that ships only the executables leaves a broken flag on
-    # a supported install path. The .deb ships it to /usr/share/oxbox/ox-review
-    # for the same reason.
-    pkgshare.install ".claude/skills/ox-review"
-    doc.install "README.md", "AGENTS.md"
-    # The comparison page, under docs/ beside the README so the README's
-    # relative link resolves; guarded because the 0.7.0 tarball predates it.
-    (doc/"docs").install "docs/comparison.md" if File.exist?("docs/comparison.md")
-  end
-
-  def front_door?
-    (libexec/"bin/oxbox-send").exist?
   end
 
   def caveats
-    if front_door?
-      <<~EOS
-        The tools are pure Python (3.9+, the system python3 works) and operate
-        on the current directory: oxbox sandbox builds ./sandbox, oxbox send
-        logs to ./logs, oxbox jail runs in ./sandbox/work — stand in your
-        project directory. Only oxbox is on PATH; `oxbox helper` lists the
-        scripts it runs for you.
+    <<~EOS
+      The tools operate on the current directory: oxbox sandbox builds
+      ./sandbox, oxbox send logs to ./logs, oxbox jail runs in ./sandbox/work
+      -- stand in your project directory. Only oxbox is on PATH; `oxbox helper`
+      lists the executables it runs for you.
 
-        The jail verification suites assert against a source checkout's layout;
-        to verify the jail on this machine:
-          git clone https://github.com/curtisgalloway/oxbox
-          cd oxbox && python3 guardtest.py
+      The jail verification suites assert against a source checkout's layout;
+      to verify the jail on this machine:
+        git clone https://github.com/curtisgalloway/oxbox
+        cd oxbox && python3 guardtest.py
 
-        Linux: bubblewrap needs unprivileged user namespaces; some hardened
-        distros (and Ubuntu 24.04's AppArmor default) restrict them. The .deb
-        on GitHub Releases is the better-tested Linux path:
-          https://github.com/curtisgalloway/oxbox/releases
-      EOS
-    else
-      <<~EOS
-        The tools are pure Python (3.9+, the system python3 works) and operate
-        on the current directory: oxseed builds ./sandbox, ox logs to ./logs,
-        oxbox jails into ./sandbox/work — stand in your project directory.
-
-        The jail verification suites assert against a source checkout's layout;
-        to verify the jail on this machine:
-          git clone https://github.com/curtisgalloway/oxbox
-          cd oxbox && python3 guardtest.py
-
-        Linux: bubblewrap needs unprivileged user namespaces; some hardened
-        distros (and Ubuntu 24.04's AppArmor default) restrict them. The .deb
-        on GitHub Releases is the better-tested Linux path:
-          https://github.com/curtisgalloway/oxbox/releases
-      EOS
-    end
+      Linux: `brew install` pours the same prebuilt binaries as macOS -- no
+      Rust toolchain needed. bubblewrap needs unprivileged user namespaces;
+      some hardened distros (and Ubuntu 24.04's AppArmor default) restrict
+      them. The .deb on GitHub Releases is the better-tested Linux path:
+        https://github.com/curtisgalloway/oxbox/releases
+    EOS
   end
 
   test do
     assert_path_exists pkgshare/"jail.sb"
     assert_path_exists pkgshare/"ox-review/SKILL.md"
-    if front_door?
-      assert_match "oxbox #{version}", shell_output("#{bin}/oxbox --version")
-      # Through the front door: each subcommand has to find its script in the
-      # keg's libexec from the linked bin/oxbox, which is the lookup this
-      # formula's layout exists to satisfy.
-      assert_match "oxbox-send #{version}", shell_output("#{bin}/oxbox send --version")
-      assert_match "oxbox-patch #{version}", shell_output("#{bin}/oxbox patch --version")
-      assert_match "oxbox-sandbox #{version}", shell_output("#{bin}/oxbox sandbox --version")
-      assert_match "oxbox-jail #{version}", shell_output("#{bin}/oxbox jail --version")
-      assert_match "oxbox-send #{version}", shell_output("#{bin}/oxbox helper send --version")
-      # --skill has to print the runbook with THIS prefix's script paths, or
-      # the commands an agent reads are commands it cannot run.
-      # find_skill/print_skill is duplicated per tool by design, so all five
-      # get asked.
-      forms = {
-        "oxbox"   => "--skill",
-        "sandbox" => "helper sandbox --skill",
-        "send"    => "helper send --skill",
-        "patch"   => "helper patch --skill",
-        "jail"    => "helper jail --skill",
-      }
-      forms.each do |tool, form|
-        skill = shell_output("#{bin}/oxbox #{form}")
-        assert_match "name: ox-review", skill, "#{tool} --skill"
-        assert_match((pkgshare/"ox-review/scripts").to_s, skill, "#{tool} --skill")
-      end
-      # The dry run needs no key or network and proves working-directory
-      # anchoring: the log must land in testpath, not anywhere script-relative.
-      # --model is explicit because no venue carries a default.
-      system bin/"oxbox", "send", "--model", "smoke-test", "--mode", "ask", "--dry-run", "hello"
-    else
-      assert_match "ox 0", shell_output("#{bin}/ox --version")
-      assert_match "oxbox #{version}", shell_output("#{bin}/oxbox --version")
-      assert_match "oxapply 0", shell_output("#{bin}/oxapply --version")
-      assert_match "oxseed 0", shell_output("#{bin}/oxseed --version")
-      %w[ox oxbox oxapply oxseed].each do |tool|
-        skill = shell_output("#{bin}/#{tool} --skill")
-        assert_match "name: ox-review", skill
-        assert_match((pkgshare/"ox-review/scripts").to_s, skill)
-      end
-      # --model is explicit: 0.6.0 dropped the default model, and this asserts
-      # where the log lands, not how a model is chosen.
-      system bin/"ox", "--model", "smoke-test", "--mode", "ask", "--dry-run", "hello"
+    assert_match "oxbox #{version}", shell_output("#{bin}/oxbox --version")
+    # Through the front door: each subcommand has to find its executable in
+    # the keg's libexec from the linked bin/oxbox, which is the lookup this
+    # formula's layout exists to satisfy.
+    assert_match "oxbox-send #{version}", shell_output("#{bin}/oxbox send --version")
+    assert_match "oxbox-patch #{version}", shell_output("#{bin}/oxbox patch --version")
+    assert_match "oxbox-sandbox #{version}", shell_output("#{bin}/oxbox sandbox --version")
+    assert_match "oxbox-jail #{version}", shell_output("#{bin}/oxbox jail --version")
+    assert_match "oxbox-send #{version}", shell_output("#{bin}/oxbox helper send --version")
+    # --skill has to print the runbook with THIS prefix's script paths, or
+    # the commands an agent reads are commands it cannot run. All five tools
+    # answer it, so all five get asked.
+    forms = {
+      "oxbox"   => "--skill",
+      "sandbox" => "helper sandbox --skill",
+      "send"    => "helper send --skill",
+      "patch"   => "helper patch --skill",
+      "jail"    => "helper jail --skill",
+    }
+    forms.each do |tool, form|
+      skill = shell_output("#{bin}/oxbox #{form}")
+      assert_match "name: ox-review", skill, "#{tool} --skill"
+      assert_match((pkgshare/"ox-review/scripts").to_s, skill, "#{tool} --skill")
     end
+    # The dry run needs no key or network and proves working-directory
+    # anchoring: the log must land in testpath, not anywhere exe-relative.
+    # --model is explicit because no venue carries a default.
+    system bin/"oxbox", "send", "--model", "smoke-test", "--mode", "ask", "--dry-run", "hello"
     assert_predicate testpath/"logs", :directory?
+
+    if OS.mac? && !build.head?
+      lipo_info = shell_output("lipo -info #{bin}/oxbox")
+      assert_match "x86_64", lipo_info
+      assert_match "arm64", lipo_info
+    end
   end
 end
