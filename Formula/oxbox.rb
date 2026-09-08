@@ -77,11 +77,11 @@ class Oxbox < Formula
       %w[oxbox-sandbox oxbox-send oxbox-patch oxbox-jail].each do |helper|
         system "cargo", "install", *std_cargo_args(root: libexec, path: "crates/#{helper}")
       end
-      # The seatbelt profile (macOS jail) and the ox-review skill, resolved
+      # The seatbelt profile (macOS jail) and the oxbox-review skill, resolved
       # from the executable: ../share/oxbox from bin, or two levels up from
       # libexec/bin. Without the skill every tool refuses --skill.
       pkgshare.install "profiles/jail.sb"
-      pkgshare.install ".claude/skills/ox-review"
+      pkgshare.install ".claude/skills/oxbox-review"
       doc.install "README.md", "AGENTS.md"
       (doc/"docs").install "docs/comparison.md"
     else
@@ -116,8 +116,17 @@ class Oxbox < Formula
   end
 
   test do
+    # The skill directory was renamed ox-review -> oxbox-review after 1.2.0,
+    # to match the command rebranding. Which name a keg carries therefore
+    # depends on the spec: --HEAD builds main and gets the new one, while
+    # stable still pours the pinned 1.2.0 tarballs and gets the old. Ask the
+    # keg instead of assuming, so one formula tests both; when repin.sh moves
+    # stable past the rename this collapses to the new name and the fallback
+    # can go.
+    skill_dir = (pkgshare/"oxbox-review").directory? ? "oxbox-review" : "ox-review"
+
     assert_path_exists pkgshare/"jail.sb"
-    assert_path_exists pkgshare/"ox-review/SKILL.md"
+    assert_path_exists pkgshare/"#{skill_dir}/SKILL.md"
     assert_match "oxbox #{version}", shell_output("#{bin}/oxbox --version")
     # Through the front door: each subcommand has to find its executable in
     # the keg's libexec from the linked bin/oxbox, which is the lookup this
@@ -139,8 +148,8 @@ class Oxbox < Formula
     }
     forms.each do |tool, form|
       skill = shell_output("#{bin}/oxbox #{form}")
-      assert_match "name: ox-review", skill, "#{tool} --skill"
-      assert_match((pkgshare/"ox-review/scripts").to_s, skill, "#{tool} --skill")
+      assert_match "name: #{skill_dir}", skill, "#{tool} --skill"
+      assert_match((pkgshare/"#{skill_dir}/scripts").to_s, skill, "#{tool} --skill")
     end
     # The dry run needs no key or network and proves working-directory
     # anchoring: the log must land in testpath, not anywhere exe-relative.
