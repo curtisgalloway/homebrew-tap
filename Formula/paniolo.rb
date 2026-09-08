@@ -15,7 +15,7 @@
 class Paniolo < Formula
   desc "Agent-controlled target machine wrangler for distributed bring-up"
   homepage "https://github.com/curtisgalloway/paniolo"
-  version "0.1.19"
+  version "0.2.0"
   license "Apache-2.0"
 
   # --HEAD: build from a git checkout, for anyone hacking on paniolo itself.
@@ -47,23 +47,23 @@ class Paniolo < Formula
   # rewrites both copies together, matched by filename, so they can't drift.
   on_macos do
     on_arm do
-      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.1.19/paniolo-0.1.19-macos-universal.tar.gz"
-      sha256 "8356f16cd8d7cf66679faa2362ca877a8fcb893d0d0c78edf2639cab9f77bad5"
+      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.2.0/paniolo-0.2.0-macos-universal.tar.gz"
+      sha256 "07392e2b79c9566f90add6a8bd07a34dc8cb22addfa80424bc3da29f8889273a"
     end
     on_intel do
-      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.1.19/paniolo-0.1.19-macos-universal.tar.gz"
-      sha256 "8356f16cd8d7cf66679faa2362ca877a8fcb893d0d0c78edf2639cab9f77bad5"
+      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.2.0/paniolo-0.2.0-macos-universal.tar.gz"
+      sha256 "07392e2b79c9566f90add6a8bd07a34dc8cb22addfa80424bc3da29f8889273a"
     end
   end
 
   on_linux do
     on_arm do
-      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.1.19/paniolo-0.1.19-linux-arm64.tar.gz"
-      sha256 "57ccd01f347eb2c55e5fde4e1501184a54e0767abfb88c6c3cff8f339643a6e0"
+      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.2.0/paniolo-0.2.0-linux-arm64.tar.gz"
+      sha256 "52e126f97a7b7489214ce9ac117bec9813e76fb80338c64c7d72513c81c9d131"
     end
     on_intel do
-      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.1.19/paniolo-0.1.19-linux-amd64.tar.gz"
-      sha256 "864aecf0e075ad8e33c682b7ca18d84d15ca0c3f3152d76021f1a3aa4f7dedff"
+      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.2.0/paniolo-0.2.0-linux-amd64.tar.gz"
+      sha256 "df1083a009afb1f95c8a5bd3eaa1fac5920a74a8d171c77877e6070c839396b4"
     end
   end
 
