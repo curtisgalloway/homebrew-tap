@@ -15,7 +15,7 @@
 class Paniolo < Formula
   desc "Agent-controlled target machine wrangler for distributed bring-up"
   homepage "https://github.com/curtisgalloway/paniolo"
-  version "0.2.0"
+  version "0.2.1"
   license "Apache-2.0"
 
   # --HEAD: build from a git checkout, for anyone hacking on paniolo itself.
@@ -47,23 +47,23 @@ class Paniolo < Formula
   # rewrites both copies together, matched by filename, so they can't drift.
   on_macos do
     on_arm do
-      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.2.0/paniolo-0.2.0-macos-universal.tar.gz"
-      sha256 "07392e2b79c9566f90add6a8bd07a34dc8cb22addfa80424bc3da29f8889273a"
+      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.2.1/paniolo-0.2.1-macos-universal.tar.gz"
+      sha256 "a51d933afdd59ec9e4c2616d89a56ae6ec11b21c145af56e056e756924e96131"
     end
     on_intel do
-      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.2.0/paniolo-0.2.0-macos-universal.tar.gz"
-      sha256 "07392e2b79c9566f90add6a8bd07a34dc8cb22addfa80424bc3da29f8889273a"
+      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.2.1/paniolo-0.2.1-macos-universal.tar.gz"
+      sha256 "a51d933afdd59ec9e4c2616d89a56ae6ec11b21c145af56e056e756924e96131"
     end
   end
 
   on_linux do
     on_arm do
-      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.2.0/paniolo-0.2.0-linux-arm64.tar.gz"
-      sha256 "52e126f97a7b7489214ce9ac117bec9813e76fb80338c64c7d72513c81c9d131"
+      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.2.1/paniolo-0.2.1-linux-arm64.tar.gz"
+      sha256 "76b5242110c281961d00fe8bc7ddd5eb2911168f1920337ce6ef151c9e8d9d9a"
     end
     on_intel do
-      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.2.0/paniolo-0.2.0-linux-amd64.tar.gz"
-      sha256 "df1083a009afb1f95c8a5bd3eaa1fac5920a74a8d171c77877e6070c839396b4"
+      url "https://github.com/curtisgalloway/paniolo/releases/download/v0.2.1/paniolo-0.2.1-linux-amd64.tar.gz"
+      sha256 "db4b1429e58de7c2f536506e998db688cecbc46ffacb945a0d4e0d0a4748b572"
     end
   end
 
