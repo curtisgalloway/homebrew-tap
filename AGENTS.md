@@ -75,9 +75,42 @@ line — that's how you know it poured the binary rather than compiling),
 then `brew test paniolo`. To exercise the source build for comparison:
 `brew install --HEAD --build-from-source curtisgalloway/tap/paniolo`.
 
-There are no bottles any more — nothing is compiled, so there is nothing
-for a bottle to precompile. The `paniolo-<ver>` Releases on this repo that
-used to host bottle tarballs are stale; they can be deleted at leisure.
+## Bottles (paniolo v0.4.0 on)
+
+Nothing is compiled, but the formula still carries a `bottle do` block, and
+it matters: Homebrew treats a bottle-less formula as a source build and runs
+its build-from-source preflight before touching the Cellar. That preflight
+includes an Xcode minimum-version check whose table lags each new macOS by
+months, so on a fresh macOS with a current Xcode `brew install paniolo`
+refused with "Your Xcode (26.6) ... is too outdated. Please update to Xcode
+27.0" — for a formula that only copies files (paniolo #225). A bottle pour
+skips all of that.
+
+The bottles are not built here. paniolo's release workflow wraps the same
+binaries in keg layout (`paniolo/<version>/bin`, `libexec/bin`,
+`share/paniolo/skills`) and publishes them next to the tarballs as
+`paniolo-<version>.<tag>.bottle.tar.gz` with `.sha256` sidecars: one `all`
+bottle for macOS (the binaries are universal, and Homebrew 7 matches a
+bottle by its *exact* tag or `all` — it no longer falls back to an older
+macOS's bottle, so per-version macOS tags would break on every new macOS),
+plus exact `arm64_linux` and `x86_64_linux` bottles, which have to exist
+because without them a Linux `brew install` would pour the `all` one.
+
+`scripts/repin.sh` fetches the three bottle sidecars alongside the tarball
+sidecars and hands them to `repin_rewrite.py`, which writes the whole
+`bottle do` block (root_url plus one `sha256 cellar: :any_skip_relocation`
+line per tag), comment included, after the `head do` block. A release with
+no bottle sidecars (anything before v0.4.0) removes the block instead, so an
+old pin never carries a stale one; a release with some but not all three
+refuses to pin, like a missing tarball sidecar does. Do not edit the block
+by hand — the next bump rewrites it. Tests: `python3 -m unittest
+scripts/test_repin_rewrite.py` (no network).
+
+The stable `url`/`sha256` pins stay: they are what `--build-from-source`
+and any platform without a bottle use, and Homebrew requires a stable url
+regardless. The `paniolo-<ver>` Releases on this repo that hosted the old
+compiled bottles are stale and can be deleted at leisure; the new bottles
+live on paniolo's own Releases.
 
 ## Releasing a new qbranch version
 
