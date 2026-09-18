@@ -107,6 +107,21 @@ read_sha256() {
   echo "${BASH_REMATCH[1]}"
 }
 
+# Like fetch_sidecar, but a missing sidecar returns 1 instead of exiting:
+# for the bottle sidecars, which releases before paniolo v0.4.0 do not have.
+fetch_sidecar_optional() {
+  asset="$1"
+  sidecar="${asset}.sha256"
+  if [ -n "${REPIN_SIDECAR_DIR:-}" ]; then
+    if [ ! -f "${REPIN_SIDECAR_DIR}/${sidecar}" ]; then
+      return 1
+    fi
+    cp "${REPIN_SIDECAR_DIR}/${sidecar}" "${workdir}/${sidecar}"
+    return 0
+  fi
+  gh release download "$tag" -R "$repo" -p "$sidecar" -D "$workdir" --clobber 2>/dev/null
+}
+
 echo "Fetching sidecars for ${tag}..."
 fetch_sidecar "$asset_macos"
 fetch_sidecar "$asset_linux_arm64"
@@ -118,11 +133,40 @@ sha_linux_amd64="$(read_sha256 "$asset_linux_amd64")"
 
 base_url="https://github.com/${repo}/releases/download/${tag}"
 
+# Bottles: <project>-<version>.<tag>.bottle.tar.gz, one `all` for macOS
+# (universal binary) and one per Linux arch, each with a sidecar like the
+# tarballs. A release has either all three or none: none means a release
+# from before bottles existed and the formula pours tarballs; all three are
+# handed to the rewrite as the bottle block; anything in between is a
+# half-published release and this refuses to pin it, as with the tarballs.
+bottle_tags="all arm64_linux x86_64_linux"
+bottle_args=()
+have_bottles=0
+for bottle_tag in $bottle_tags; do
+  asset_bottle="${project}-${version}.${bottle_tag}.bottle.tar.gz"
+  if fetch_sidecar_optional "$asset_bottle"; then
+    have_bottles=$((have_bottles + 1))
+    bottle_args+=(--bottle "$bottle_tag" "$(read_sha256 "$asset_bottle")")
+  fi
+done
+case "$have_bottles" in
+  0) echo "No bottle sidecars on ${tag}; the formula will pour tarballs only." ;;
+  3) bottle_args=(--bottle-root-url "$base_url" "${bottle_args[@]}") ;;
+  *)
+    echo "error: ${tag} has ${have_bottles} of 3 bottle sidecars (${bottle_tags}) -- refusing to re-pin" >&2
+    exit 1
+    ;;
+esac
+
 echo "Rewriting ${formula}..."
+# ${arr[@]+"${arr[@]}"} rather than a bare "${arr[@]}": under `set -u` an
+# empty array expansion is an unbound-variable error in bash 3.2, which is
+# what a Mac runs this with by hand.
 python3 "$rewrite_script" "$formula" \
   --version "$version" \
   --asset "macos-universal.tar.gz" "${base_url}/${asset_macos}" "$sha_macos" \
   --asset "linux-arm64.tar.gz" "${base_url}/${asset_linux_arm64}" "$sha_linux_arm64" \
-  --asset "linux-amd64.tar.gz" "${base_url}/${asset_linux_amd64}" "$sha_linux_amd64"
+  --asset "linux-amd64.tar.gz" "${base_url}/${asset_linux_amd64}" "$sha_linux_amd64" \
+  ${bottle_args[@]+"${bottle_args[@]}"}
 
 echo "Done. Formula/${project}.rb now pins ${tag}."
