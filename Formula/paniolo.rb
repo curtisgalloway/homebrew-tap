@@ -146,10 +146,11 @@ class Paniolo < Formula
       Bundled agent skills are available via `paniolo skill` (no arg lists
       them; a name prints that skill's SKILL.md).
 
-      Linux: `brew install` pours the same prebuilt binaries as macOS — no
-      Rust toolchain needed. The .deb on GitHub Releases is an alternative if
-      you'd rather not use brew:
-        https://github.com/curtisgalloway/paniolo/releases
+      Linux: `brew install` pours prebuilt binaries — no Rust toolchain
+      needed. On a control host that runs capture daemons for days, prefer
+      the signed apt repository: its package also installs a tmpfiles.d rule
+      that Homebrew cannot place outside its prefix (paniolo #187). Setup:
+        https://github.com/curtisgalloway/paniolo#linux-apt-repository
     EOS
   end
 
