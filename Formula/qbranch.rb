@@ -10,7 +10,7 @@
 class Qbranch < Formula
   desc "Outfits a machine's coding agents from a per-machine manifest"
   homepage "https://github.com/curtisgalloway/qbranch"
-  version "0.4.0"
+  version "0.5.0"
   license "Apache-2.0"
 
   livecheck do
@@ -20,12 +20,12 @@ class Qbranch < Formula
 
   on_macos do
     on_arm do
-      url "https://github.com/curtisgalloway/qbranch/releases/download/v0.4.0/qbranch-v0.4.0-aarch64-apple-darwin.tar.gz"
-      sha256 "00c676f79e57853eb6c0127862a6e73bd9f5b5f3bd8808a097b5fc8343398889"
+      url "https://github.com/curtisgalloway/qbranch/releases/download/v0.5.0/qbranch-v0.5.0-aarch64-apple-darwin.tar.gz"
+      sha256 "ca9b552e20b02d40fb93a18e152eb8fcde9a3af66b9756a157e94770d7d37b33"
     end
     on_intel do
-      url "https://github.com/curtisgalloway/qbranch/releases/download/v0.4.0/qbranch-v0.4.0-x86_64-apple-darwin.tar.gz"
-      sha256 "bfb774a508540a3a337c07bbc42e5f734be169291d0dd81fc05e04708d909cb4"
+      url "https://github.com/curtisgalloway/qbranch/releases/download/v0.5.0/qbranch-v0.5.0-x86_64-apple-darwin.tar.gz"
+      sha256 "d503135fc76db62134d70167fc9b12063566e0aa0c7b0d8ae25b9492898e123e"
     end
   end
 
