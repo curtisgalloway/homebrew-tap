@@ -4,9 +4,10 @@
 # A binary formula: it pours the prebuilt, corpus-tested tarball from the
 # qbranch release rather than building from source, one url per
 # architecture. No bottle, no Rust dependency, no `head`; `cargo install
-# qbranch` covers anyone who wants a source build. macOS only: Linux users
-# take the .deb from the releases page. bump-qbranch-formula.yml rewrites the
-# version line and both url/sha256 pairs on each release.
+# qbranch` covers anyone who wants a source build. On Linux it pours the
+# static musl tarballs, which run on any distribution; Debian-family hosts
+# can take the .deb from the releases page instead. bump-qbranch-formula.yml
+# rewrites the version line and all four url/sha256 pairs on each release.
 class Qbranch < Formula
   desc "Outfits a machine's coding agents from a per-machine manifest"
   homepage "https://github.com/curtisgalloway/qbranch"
@@ -29,10 +30,20 @@ class Qbranch < Formula
     end
   end
 
+  on_linux do
+    on_arm do
+      url "https://github.com/curtisgalloway/qbranch/releases/download/v0.5.0/qbranch-v0.5.0-aarch64-unknown-linux-musl.tar.gz"
+      sha256 "e20c6c04ec9ba05131bac2dc178d58f7424db891fd7e043f191f1de1fc927ce5"
+    end
+    on_intel do
+      url "https://github.com/curtisgalloway/qbranch/releases/download/v0.5.0/qbranch-v0.5.0-x86_64-unknown-linux-musl.tar.gz"
+      sha256 "f5f6713751c0e35512d6ea50e581303793642d569a949b430ec4b10477ad2c7b"
+    end
+  end
+
   def install
     bin.install "qbranch"
-    # The tool's own two skills (review-plugins, agent-audit), beside bin as
-    # on every other channel. Tarballs carry skills/ from 0.3.1 on; the guard
+    # The tool's own bundled skills, beside bin as on every other channel. Tarballs carry skills/ from 0.3.1 on; the guard
     # covers the 0.3.0 pin and can go once the pin has moved past it.
     (share/"qbranch").install "skills" if File.directory?("skills")
     doc.install "README.md"
