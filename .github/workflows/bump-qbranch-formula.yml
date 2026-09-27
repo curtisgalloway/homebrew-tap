@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Re-pin Formula/qbranch.rb to a qbranch release: the version line and the
-# url/sha256 pair for each macOS architecture. The formula is a binary
+# url/sha256 pair for each macOS and Linux architecture. The formula is a binary
 # formula pouring the release tarballs, so there is no bottle to build and
 # this is one job on Ubuntu; compare bump-formula.yml (paniolo), which
 # source-builds and bottles.
@@ -69,7 +69,8 @@ jobs:
           # learned the hard way; see bump-formula.yml.
           set -o pipefail
           base="https://github.com/curtisgalloway/qbranch/releases/download/${TAG}"
-          for target in aarch64-apple-darwin x86_64-apple-darwin; do
+          for target in aarch64-apple-darwin x86_64-apple-darwin \
+                        aarch64-unknown-linux-musl x86_64-unknown-linux-musl; do
             url="${base}/qbranch-${TAG}-${target}.tar.gz"
             echo "Hashing $url"
             sha=$(curl -fsSL "$url" | sha256sum | cut -d' ' -f1)
@@ -94,9 +95,9 @@ jobs:
           echo "Formula now pins:"
           grep -E '^\s+(version|url|sha256) ' Formula/qbranch.rb
           # A sed that matched nothing leaves a stale pin behind a fresh
-          # version line; require both url lines to carry the new tag.
-          if [ "$(grep -c "qbranch-${TAG}-" Formula/qbranch.rb)" != "2" ]; then
-            echo "::error::expected both url lines to pin ${TAG}"
+          # version line; require all four url lines to carry the new tag.
+          if [ "$(grep -c "qbranch-${TAG}-" Formula/qbranch.rb)" != "4" ]; then
+            echo "::error::expected all four url lines to pin ${TAG}"
             exit 1
           fi
 
