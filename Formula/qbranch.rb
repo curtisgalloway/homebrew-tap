@@ -11,7 +11,7 @@
 class Qbranch < Formula
   desc "Outfits a machine's coding agents from a per-machine manifest"
   homepage "https://github.com/curtisgalloway/qbranch"
-  version "0.5.0"
+  version "0.6.0"
   license "Apache-2.0"
 
   livecheck do
@@ -21,23 +21,23 @@ class Qbranch < Formula
 
   on_macos do
     on_arm do
-      url "https://github.com/curtisgalloway/qbranch/releases/download/v0.5.0/qbranch-v0.5.0-aarch64-apple-darwin.tar.gz"
-      sha256 "ca9b552e20b02d40fb93a18e152eb8fcde9a3af66b9756a157e94770d7d37b33"
+      url "https://github.com/curtisgalloway/qbranch/releases/download/v0.6.0/qbranch-v0.6.0-aarch64-apple-darwin.tar.gz"
+      sha256 "6c28519121f622773c47e32d18e88fdcaf3ffc899a443ef2a8dd4a2dc1cc2089"
     end
     on_intel do
-      url "https://github.com/curtisgalloway/qbranch/releases/download/v0.5.0/qbranch-v0.5.0-x86_64-apple-darwin.tar.gz"
-      sha256 "d503135fc76db62134d70167fc9b12063566e0aa0c7b0d8ae25b9492898e123e"
+      url "https://github.com/curtisgalloway/qbranch/releases/download/v0.6.0/qbranch-v0.6.0-x86_64-apple-darwin.tar.gz"
+      sha256 "5a73622140d832d0a26e62a051a23ee3dc2cb843e26d25bb488fbd6cb275dd25"
     end
   end
 
   on_linux do
     on_arm do
-      url "https://github.com/curtisgalloway/qbranch/releases/download/v0.5.0/qbranch-v0.5.0-aarch64-unknown-linux-musl.tar.gz"
-      sha256 "e20c6c04ec9ba05131bac2dc178d58f7424db891fd7e043f191f1de1fc927ce5"
+      url "https://github.com/curtisgalloway/qbranch/releases/download/v0.6.0/qbranch-v0.6.0-aarch64-unknown-linux-musl.tar.gz"
+      sha256 "2541893469669d243538c1221d5fb198a7055277d07e897ab496c9580cf8ff9a"
     end
     on_intel do
-      url "https://github.com/curtisgalloway/qbranch/releases/download/v0.5.0/qbranch-v0.5.0-x86_64-unknown-linux-musl.tar.gz"
-      sha256 "f5f6713751c0e35512d6ea50e581303793642d569a949b430ec4b10477ad2c7b"
+      url "https://github.com/curtisgalloway/qbranch/releases/download/v0.6.0/qbranch-v0.6.0-x86_64-unknown-linux-musl.tar.gz"
+      sha256 "aedf0f05ef8abae43e5fee15f23ee995fede97ba266365e8420679d9c5ccdcff"
     end
   end
 
