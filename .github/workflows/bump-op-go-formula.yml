@@ -1,0 +1,68 @@
+# SPDX-FileCopyrightText: 2026 Curtis Galloway
+# SPDX-License-Identifier: Apache-2.0
+name: Bump op-go formula
+
+on:
+  repository_dispatch:
+    types: [op-go-release]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Published stable release tag (vX.Y.Z)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bump-op-go-formula
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    if: github.repository == 'curtisgalloway/homebrew-tap'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Validate tag and download complete release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISPATCH_TAG: ${{ github.event.client_payload.tag }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          tag="${DISPATCH_TAG:-$INPUT_TAG}"
+          python3 -c 'import sys; from scripts.repin_op_go import version_tuple; version_tuple(sys.argv[1])' "$tag"
+          echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
+          mkdir assets
+          python3 -c 'import sys; from scripts.repin_op_go import asset_names; print("\n".join(asset_names(sys.argv[1])))' "$tag" > asset-names.txt
+          while IFS= read -r asset; do
+            gh release download "$tag" --repo curtisgalloway/op-go --dir assets --pattern "$asset" --pattern "$asset.sha256"
+          done < asset-names.txt
+      - name: Generate and check formula
+        run: |
+          set -euo pipefail
+          python3 -m unittest scripts/test_repin_op_go.py
+          python3 scripts/repin_op_go.py --tag "$RELEASE_TAG" --assets assets --output Formula/op-go.rb
+          ruby -c Formula/op-go.rb
+      - name: Commit and push verified pin
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git add Formula/op-go.rb
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "op-go ${RELEASE_TAG#v}: pin verified release assets"
+          # A concurrent unrelated tap update is replayed; a conflicting update fails.
+          git fetch origin main
+          git rebase origin/main
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main

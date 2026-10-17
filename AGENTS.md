@@ -16,8 +16,23 @@ limitations under the License.
 
 # homebrew-tap — Agent Instructions
 
+**Terms:** formula means a Homebrew installation recipe; bottle means a
+prebuilt Homebrew package archive. See [GLOSSARY.md](GLOSSARY.md).
+
 Homebrew tap for paniolo, oxbox and qbranch. Users install with
 `brew install curtisgalloway/tap/<formula>`.
+
+## Releasing op-go
+
+Use `.github/workflows/bump-op-go-formula.yml` and `scripts/repin_op_go.py`.
+The first complete release creates the formula; never commit a placeholder
+version or fabricated checksum. Require all three archives, all three bottles,
+and all six checksum sidecars. The generator verifies actual bytes, checks
+sidecar basenames, and refuses a downgrade before changing the formula.
+Its `--assets` and `--output` options support offline release validation.
+Keep its asset names synchronized with op-go's release packaging. Run
+`python3 -m unittest scripts/test_repin_op_go.py`, pyink, and pylint after
+changes; check generated Ruby with `ruby -c`. See README for dispatch setup.
 
 ## Releasing a new paniolo version
 
