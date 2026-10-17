@@ -16,6 +16,9 @@ limitations under the License.
 
 # curtisgalloway/homebrew-tap
 
+**Terms:** a tap contains Homebrew installation recipes (formulae); a bottle
+is a prebuilt package archive. See [GLOSSARY.md](GLOSSARY.md).
+
 Homebrew formulae for [Curtis Galloway](https://github.com/curtisgalloway)'s
 projects.
 
@@ -68,9 +71,39 @@ is normal for a release that predates this scheme or hasn't finished
 publishing yet. `.github/workflows/bump-formula.yml` runs the same script
 automatically on every paniolo release.
 
-There are no bottles any more — a prebuilt binary formula has nothing left
-for a bottle to precompile. The `paniolo-<ver>` Releases on this repo that
-used to host them are stale and can be deleted at leisure.
+Bottles now wrap the release binaries in Homebrew's package layout. They live
+on the project's own release alongside its ordinary tarballs; no compilation
+runs in this tap.
+
+## op-go releases
+
+The first complete [op-go release](https://github.com/curtisgalloway/op-go/releases)
+creates `Formula/op-go.rb`; there is no placeholder formula before that release.
+Afterward, install it with `brew install curtisgalloway/tap/op-go` on macOS
+(Apple Silicon or Intel) or Linux (ARM64 or x86-64).
+
+The **Bump op-go formula** workflow accepts an explicit stable `vX.Y.Z` tag,
+either manually or through an `op-go-release` dispatch event with
+`client_payload.tag`. The op-go repository needs the
+`HOMEBREW_TAP_DISPATCH_TOKEN` secret: a fine-grained GitHub token with
+Contents:write permission on this tap. The tap workflow uses its own
+`GITHUB_TOKEN` to commit and push the formula.
+
+The workflow downloads all three binary tarballs, all three bottles, and
+their six `.sha256` sidecars. `scripts/repin_op_go.py` verifies the actual
+archive bytes against strictly named checksums before writing anything.
+Missing assets, malformed checksums, mismatches, empty archives, prerelease
+tags, version downgrades, and changes to an already pinned version fail
+without replacing the formula. Repeating the exact same pin is a no-op. macOS uses
+the universal binary and the `all` bottle; explicit Linux bottle entries
+prevent Linux from selecting the macOS bottle.
+
+The generator also supports offline release validation through `--tag`,
+`--assets` (a directory of all twelve files), and `--output` (a scratch
+formula path). Run its tests with `python3 -m unittest scripts/test_repin_op_go.py`.
+The generated `brew test` checks version, embedded instructions, missing-file
+credential diagnostics, and a fake-reference dry run without accessing real
+credentials. It does not qualify live Keychain or Secret Service access.
 
 ## License
 
