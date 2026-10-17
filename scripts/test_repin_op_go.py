@@ -84,6 +84,19 @@ class RepinTest(unittest.TestCase):
             self.generate()
         self.assertEqual(self.output.read_text(), '  version "1.10.0"\n')
 
+    def test_reject_same_version_changed_content(self):
+        self.generate()
+        original = self.output.read_text()
+        name = self.names[0]
+        data = b"replacement archive"
+        (self.directory / name).write_bytes(data)
+        (self.directory / (name + ".sha256")).write_text(
+            f"{hashlib.sha256(data).hexdigest()}  {name}\n"
+        )
+        with self.assertRaisesRegex(ValueError, "immutable"):
+            self.generate()
+        self.assertEqual(self.output.read_text(), original)
+
 
 if __name__ == "__main__":
     unittest.main()

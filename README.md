@@ -93,7 +93,8 @@ The workflow downloads all three binary tarballs, all three bottles, and
 their six `.sha256` sidecars. `scripts/repin_op_go.py` verifies the actual
 archive bytes against strictly named checksums before writing anything.
 Missing assets, malformed checksums, mismatches, empty archives, prerelease
-tags, and version downgrades fail without replacing the formula. macOS uses
+tags, version downgrades, and changes to an already pinned version fail
+without replacing the formula. Repeating the exact same pin is a no-op. macOS uses
 the universal binary and the `all` bottle; explicit Linux bottle entries
 prevent Linux from selecting the macOS bottle.
 

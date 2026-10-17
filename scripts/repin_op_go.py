@@ -115,16 +115,22 @@ end
 def generate(tag, assets, output):
     """Verify all inputs and refuse downgrades before replacing the formula."""
     target = version_tuple(tag)
+    existing = None
+    same_version = False
     if output.exists():
-        match = re.search(
-            r'^  version "([0-9]+\.[0-9]+\.[0-9]+)"$', output.read_text(), re.M
-        )
+        existing = output.read_text()
+        match = re.search(r'^  version "([0-9]+\.[0-9]+\.[0-9]+)"$', existing, re.M)
         if not match:
             raise ValueError("existing formula has no recognizable version")
         if target < version_tuple("v" + match[1]):
             raise ValueError("refusing to downgrade existing formula")
+        same_version = target == version_tuple("v" + match[1])
     hashes = {name: verified_hash(assets, name) for name in asset_names(tag)}
     content = render(tag, hashes)
+    if same_version:
+        if existing != content:
+            raise ValueError("refusing to change an immutable release pin")
+        return
     output.write_text(content, encoding="utf-8")
 
 

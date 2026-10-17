@@ -65,4 +65,8 @@ jobs:
           # A concurrent unrelated tap update is replayed; a conflicting update fails.
           git fetch origin main
           git rebase origin/main
-          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
+          # Expand the token only inside the transient credential helper.
+          # shellcheck disable=SC2016
+          git -c credential.helper= \
+            -c 'credential.helper=!f() { if [ "$1" = get ]; then printf "username=x-access-token\npassword=%s\n" "$GH_TOKEN"; fi; }; f' \
+            push "https://github.com/${GITHUB_REPOSITORY}.git" HEAD:main
