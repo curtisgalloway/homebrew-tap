@@ -63,9 +63,14 @@ def render(tag, hashes):
         "  bottle do",
         f'    root_url "{base}"',
     ]
-    for target, name in zip(("all", "x86_64_linux", "arm64_linux"), names[3:]):
+    for target, name in (
+        ("all", names[3]),
+        ("arm64_linux", names[5]),
+        ("x86_64_linux", names[4]),
+    ):
+        label = (target + ":").ljust(13)
         lines.append(
-            f'    sha256 cellar: :any_skip_relocation, {target}: "{hashes[name]}"'
+            f'    sha256 cellar: :any_skip_relocation, {label} "{hashes[name]}"'
         )
     lines.extend(["  end", ""])
     for platform, targets in (
