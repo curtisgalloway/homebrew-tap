@@ -1,10 +1,10 @@
 # SPDX-FileCopyrightText: 2026 Curtis Galloway
 # SPDX-License-Identifier: Apache-2.0
 
-# Re-pin Formula/paniolo.rb to a paniolo release tag.
+# Re-pin Formula/panio.rb to a panio release tag.
 #
 # The formula is a binary formula: it pours the release's prebuilt tarballs
-# (see Formula/paniolo.rb), so the whole bump is one job — resolve the tag,
+# (see Formula/panio.rb), so the whole bump is one job — resolve the tag,
 # run scripts/repin.sh, commit, push. There is no source build, no bottle to
 # compile, and nothing to merge back in, unlike the three-job
 # bump/bottle/merge pipeline this replaced (see git history and
@@ -12,20 +12,20 @@
 # sidecar rather than hashing a source tarball, and refuses to touch the
 # formula if a release is missing one).
 #
-# Fired automatically by paniolo's release workflow via repository_dispatch
-# (event_type: paniolo-release, client_payload.tag = vX.Y.Z) once a Release
+# Fired automatically by panio's release workflow via repository_dispatch
+# (event_type: panio-release, client_payload.tag = vX.Y.Z) once a Release
 # is published. Also runnable by hand (workflow_dispatch) with an optional
-# tag — omit it to pin whatever paniolo's latest release is.
+# tag — omit it to pin whatever panio's latest release is.
 
-name: Bump paniolo formula
+name: Bump panio formula
 
 on:
   repository_dispatch:
-    types: [paniolo-release]
+    types: [panio-release]
   workflow_dispatch:
     inputs:
       tag:
-        description: "paniolo release tag to pin (e.g. v0.1.18); default = latest"
+        description: "panio release tag to pin (e.g. v0.1.18); default = latest"
         required: false
 
 permissions:
@@ -51,7 +51,7 @@ jobs:
         run: |
           tag="${DISPATCH_TAG:-$INPUT_TAG}"
           if [ -z "$tag" ]; then
-            tag=$(gh release view --repo curtisgalloway/paniolo --json tagName -q .tagName)
+            tag=$(gh release view --repo curtisgalloway/panio --json tagName -q .tagName)
           fi
           case "$tag" in
             v[0-9]*) ;;
@@ -73,7 +73,7 @@ jobs:
       # is disabled") — it needs the formula resolvable through a tap, which
       # a plain checkout isn't, so only `brew style` (which takes a path)
       # runs here. A maintainer can run the real audit locally against a
-      # tapped clone: `brew audit --strict --formula curtisgalloway/tap/paniolo`
+      # tapped clone: `brew audit --strict --formula curtisgalloway/tap/panio`
       # (see AGENTS.md).
       - name: brew style (best effort)
         run: |
@@ -81,20 +81,20 @@ jobs:
             echo "::notice::Homebrew not installed on this runner; skipping brew style."
             exit 0
           fi
-          brew style Formula/paniolo.rb
+          brew style Formula/panio.rb
 
       - name: Commit the re-pin
         env:
           VERSION: ${{ steps.tag.outputs.version }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          if git diff --quiet -- Formula/paniolo.rb; then
+          if git diff --quiet -- Formula/panio.rb; then
             echo "Formula already pins ${VERSION} — nothing to commit."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "paniolo ${VERSION}: re-pin formula (automated)" -- Formula/paniolo.rb
+          git commit -m "panio ${VERSION}: re-pin formula (automated)" -- Formula/panio.rb
           # Push to an explicit token URL: bare `git push` needs an upstream,
           # and the ephemeral GITHUB_TOKEN is auto-masked in logs and isn't
           # persisted to .git/config (passed straight to push).

@@ -13,7 +13,7 @@ fixture formula with no network access and no `gh` invocation
 
 Matching is by filename suffix, not by line position or block nesting, so it
 finds a `url` line wherever it lives in the file and is indifferent to how
-many times a given asset is pinned (Formula/paniolo.rb pins the macOS
+many times a given asset is pinned (Formula/panio.rb pins the macOS
 tarball twice, once under on_arm and once under on_intel, because both
 architectures share one universal binary). It refuses to touch anything
 inside a `head do ... end` block — the --HEAD spec builds from a git
@@ -46,10 +46,10 @@ BOTTLE_TAG_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 # block for removal purposes: rewrite_bottles() strips the contiguous
 # comment lines directly above `bottle do` along with the block itself.
 BOTTLE_COMMENT = [
-    "# Bottles: the release's own binaries wrapped in keg layout by paniolo's",
+    "# Bottles: the release's own binaries wrapped in keg layout by panio's",
     '# release workflow ("Build Homebrew bottle" steps), so `brew install`',
     "# pours them. A pour skips Homebrew's build-from-source preflight, which",
-    "# refuses outright on a macOS newer than its Xcode table (paniolo #225)",
+    "# refuses outright on a macOS newer than its Xcode table (panio #225)",
     "# even though this formula never compiles anything. `all` serves every",
     "# macOS version and arch because the binaries are universal; the Linux",
     "# tags are exact because Homebrew 7 matches a bottle by its exact tag or",
