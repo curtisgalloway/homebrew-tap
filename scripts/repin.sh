@@ -10,9 +10,9 @@
 # Usage: scripts/repin.sh vX.Y.Z
 #        REPIN_PROJECT=oxbox scripts/repin.sh vX.Y.Z
 #
-# REPIN_PROJECT names the project (default paniolo): the GitHub repo is
+# REPIN_PROJECT names the project (default panio): the GitHub repo is
 # curtisgalloway/<project>, the formula is Formula/<project>.rb, and the
-# assets are <project>-<version>-<suffix>.tar.gz. paniolo and oxbox publish
+# assets are <project>-<version>-<suffix>.tar.gz. panio and oxbox publish
 # the same three suffixes with the same sha256 sidecars, so one script
 # serves both.
 #
@@ -24,7 +24,7 @@
 # rewrite alone, with no network access, against a fixture formula.
 #
 # Runnable by hand from a checkout, or from CI (bump-formula.yml): both just
-# need `gh` authenticated for curtisgalloway/paniolo, a public repo, so an
+# need `gh` authenticated for curtisgalloway/panio, a public repo, so an
 # unauthenticated `gh` (subject to lower rate limits) also works.
 #
 # For testing the download+verify step without hitting a real release, set
@@ -49,7 +49,7 @@ if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 fi
 version="${tag#v}"
 
-project="${REPIN_PROJECT:-paniolo}"
+project="${REPIN_PROJECT:-panio}"
 repo="curtisgalloway/${project}"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 formula="${script_dir}/../Formula/${project}.rb"
@@ -108,7 +108,7 @@ read_sha256() {
 }
 
 # Like fetch_sidecar, but a missing sidecar returns 1 instead of exiting:
-# for the bottle sidecars, which releases before paniolo v0.4.0 do not have.
+# for the bottle sidecars, which releases before panio v0.4.0 do not have.
 fetch_sidecar_optional() {
   asset="$1"
   sidecar="${asset}.sha256"

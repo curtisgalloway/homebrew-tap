@@ -19,7 +19,7 @@
 # published. Also runnable by hand (workflow_dispatch) with an optional tag —
 # omit it to pin whatever oxbox's latest release is.
 #
-# Like the paniolo pipeline: oxbox's release publishes prebuilt tarballs
+# Like the panio pipeline: oxbox's release publishes prebuilt tarballs
 # (macOS universal, Linux amd64, Linux arm64) with sha256 sidecars, and the
 # formula pours them, so the bump is scripts/repin.sh with REPIN_PROJECT=oxbox.
 
@@ -93,6 +93,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "oxbox ${VERSION}: re-pin formula (automated)" -- Formula/oxbox.rb
-          # Explicit token URL for the same reason as the paniolo workflow:
+          # Explicit token URL for the same reason as the panio workflow:
           # the ephemeral GITHUB_TOKEN, auto-masked, not persisted to config.
           git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main

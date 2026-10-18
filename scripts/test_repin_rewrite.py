@@ -14,45 +14,45 @@ import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPT = os.path.join(HERE, "repin_rewrite.py")
-FORMULA = os.path.join(HERE, "..", "Formula", "paniolo.rb")
+FORMULA = os.path.join(HERE, "..", "Formula", "panio.rb")
 
 SHA_A = "a" * 64
 SHA_B = "b" * 64
 SHA_C = "c" * 64
 SHA_D = "d" * 64
 
-FIXTURE = """class Paniolo < Formula
+FIXTURE = """class Panio < Formula
   desc "fixture"
   homepage "https://example.invalid"
   version "0.1.0"
   license "Apache-2.0"
 
   head do
-    url "https://github.com/curtisgalloway/paniolo.git", branch: "main"
+    url "https://github.com/curtisgalloway/panio.git", branch: "main"
 
     depends_on "rust" => :build
   end
 
   on_macos do
     on_arm do
-      url "https://example.invalid/v0.1.0/paniolo-0.1.0-macos-universal.tar.gz"
+      url "https://example.invalid/v0.1.0/panio-0.1.0-macos-universal.tar.gz"
       sha256 "0000000000000000000000000000000000000000000000000000000000000000"
     end
     on_intel do
-      url "https://example.invalid/v0.1.0/paniolo-0.1.0-macos-universal.tar.gz"
+      url "https://example.invalid/v0.1.0/panio-0.1.0-macos-universal.tar.gz"
       sha256 "0000000000000000000000000000000000000000000000000000000000000000"
     end
   end
 
   on_linux do
     on_arm do
-      url "https://example.invalid/v0.1.0/paniolo-0.1.0-linux-arm64.tar.gz"
+      url "https://example.invalid/v0.1.0/panio-0.1.0-linux-arm64.tar.gz"
       sha256 "1111111111111111111111111111111111111111111111111111111111111111"
     end
   end
 
   def install
-    bin.install "paniolo"
+    bin.install "panio"
   end
 end
 """
@@ -62,11 +62,11 @@ ASSET_ARGS = [
     "0.2.0",
     "--asset",
     "macos-universal.tar.gz",
-    "https://example.invalid/v0.2.0/paniolo-0.2.0-macos-universal.tar.gz",
+    "https://example.invalid/v0.2.0/panio-0.2.0-macos-universal.tar.gz",
     SHA_A,
     "--asset",
     "linux-arm64.tar.gz",
-    "https://example.invalid/v0.2.0/paniolo-0.2.0-linux-arm64.tar.gz",
+    "https://example.invalid/v0.2.0/panio-0.2.0-linux-arm64.tar.gz",
     SHA_B,
 ]
 
@@ -84,7 +84,7 @@ BOTTLE_ARGS = [
 
 def run(formula_text, *extra):
     with tempfile.TemporaryDirectory() as tmp:
-        path = os.path.join(tmp, "paniolo.rb")
+        path = os.path.join(tmp, "panio.rb")
         with open(path, "w", encoding="utf-8") as f:
             f.write(formula_text)
         proc = subprocess.run(
@@ -135,12 +135,12 @@ class RepinRewriteTest(unittest.TestCase):
         # Everything but the pins is back to the fixture.
         expected = FIXTURE.replace('version "0.1.0"', 'version "0.2.0"')
         expected = expected.replace(
-            "https://example.invalid/v0.1.0/paniolo-0.1.0-macos-universal.tar.gz",
-            "https://example.invalid/v0.2.0/paniolo-0.2.0-macos-universal.tar.gz",
+            "https://example.invalid/v0.1.0/panio-0.1.0-macos-universal.tar.gz",
+            "https://example.invalid/v0.2.0/panio-0.2.0-macos-universal.tar.gz",
         ).replace("0" * 64, SHA_A)
         expected = expected.replace(
-            "https://example.invalid/v0.1.0/paniolo-0.1.0-linux-arm64.tar.gz",
-            "https://example.invalid/v0.2.0/paniolo-0.2.0-linux-arm64.tar.gz",
+            "https://example.invalid/v0.1.0/panio-0.1.0-linux-arm64.tar.gz",
+            "https://example.invalid/v0.2.0/panio-0.2.0-linux-arm64.tar.gz",
         ).replace("1" * 64, SHA_B)
         self.assertEqual(out, expected)
 
@@ -153,7 +153,7 @@ class RepinRewriteTest(unittest.TestCase):
     def test_head_block_is_never_touched(self):
         _, out = run(FIXTURE, *BOTTLE_ARGS)
         self.assertIn(
-            '    url "https://github.com/curtisgalloway/paniolo.git", branch: "main"\n', out
+            '    url "https://github.com/curtisgalloway/panio.git", branch: "main"\n', out
         )
 
     def test_bottle_without_root_url_is_refused(self):

@@ -4,7 +4,7 @@
 # Re-pin Formula/qbranch.rb to a qbranch release: the version line and the
 # url/sha256 pair for each macOS and Linux architecture. The formula is a binary
 # formula pouring the release tarballs, so there is no bottle to build and
-# this is one job on Ubuntu; compare bump-formula.yml (paniolo), which
+# this is one job on Ubuntu; compare bump-formula.yml (panio), which
 # source-builds and bottles.
 #
 # Fired by qbranch's release workflow via repository_dispatch (event_type:
@@ -65,7 +65,7 @@ jobs:
           VERSION: ${{ steps.tag.outputs.version }}
         run: |
           # pipefail, or a failed download hashes an empty stream and the
-          # bogus sha256("") pin lands on main. Same lesson the paniolo bump
+          # bogus sha256("") pin lands on main. Same lesson the panio bump
           # learned the hard way; see bump-formula.yml.
           set -o pipefail
           base="https://github.com/curtisgalloway/qbranch/releases/download/${TAG}"

@@ -12,16 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-class Paniolo < Formula
+class Panio < Formula
   desc "Agent-controlled target machine wrangler for distributed bring-up"
-  homepage "https://github.com/curtisgalloway/paniolo"
+  homepage "https://github.com/curtisgalloway/panio"
   version "0.10.0"
   license "Apache-2.0"
 
-  # Bottles: the release's own binaries wrapped in keg layout by paniolo's
+  # Bottles: the release's own binaries wrapped in keg layout by panio's
   # release workflow ("Build Homebrew bottle" steps), so `brew install`
   # pours them. A pour skips Homebrew's build-from-source preflight, which
-  # refuses outright on a macOS newer than its Xcode table (paniolo #225)
+  # refuses outright on a macOS newer than its Xcode table (panio #225)
   # even though this formula never compiles anything. `all` serves every
   # macOS version and arch because the binaries are universal; the Linux
   # tags are exact because Homebrew 7 matches a bottle by its exact tag or
@@ -34,12 +34,12 @@ class Paniolo < Formula
     sha256 cellar: :any_skip_relocation, x86_64_linux: "df9762f7de9e8fd41e2d6fa3de7d10baa0449b8f824b4db775935fbd18b76a1d"
   end
 
-  # --HEAD: build from a git checkout, for anyone hacking on paniolo itself.
+  # --HEAD: build from a git checkout, for anyone hacking on panio itself.
   # Only this spec needs a toolchain — the stable spec below never does. Must
   # come before the on_macos/on_linux blocks: `brew style`'s ComponentsOrder
   # cop wants `head` first among these top-level stanzas.
   head do
-    url "https://github.com/curtisgalloway/paniolo.git", branch: "main"
+    url "https://github.com/curtisgalloway/panio.git", branch: "main"
 
     depends_on "rust" => :build
 
@@ -85,7 +85,7 @@ class Paniolo < Formula
 
   def install
     if build.head?
-      # Only the CLI lands on PATH; the helpers are paniolo's private plumbing,
+      # Only the CLI lands on PATH; the helpers are panio's private plumbing,
       # installed into the keg's libexec/bin where the CLI finds them via its
       # exe-relative lookup (../libexec/bin from the resolved binary).
       system "cargo", "install", *std_cargo_args(path: "cli")
@@ -101,8 +101,8 @@ class Paniolo < Formula
         (libexec/"bin").install "ocr/linuxocr"
       end
 
-      # Bundled agent skills (`paniolo skill`): the CLI reads them from
-      # <keg>/share/paniolo/skills — the exe-relative share lookup in
+      # Bundled agent skills (`panio skill`): the CLI reads them from
+      # <keg>/share/panio/skills — the exe-relative share lookup in
       # cli/src/skills.rs (canonicalizes the binary, so they must live in the
       # keg, not just the opt-linked prefix). Mirror the repo's
       # skills/<name>/SKILL.md layout. Globbed so new skills need no formula edit
@@ -113,16 +113,16 @@ class Paniolo < Formula
       end
     elsif OS.mac?
       # macOS release tarball: already laid out exactly as the keg wants it —
-      # bin/, libexec/bin/, share/paniolo/skills/ — so this is a straight
+      # bin/, libexec/bin/, share/panio/skills/ — so this is a straight
       # copy. Universal (arm64 + x86_64) binary, no arch split needed.
-      bin.install "bin/paniolo"
+      bin.install "bin/panio"
       (libexec/"bin").install Dir["libexec/bin/*"]
-      (pkgshare/"skills").install Dir["share/paniolo/skills/*"]
+      (pkgshare/"skills").install Dir["share/panio/skills/*"]
     else
       # Linux release tarball: flat — the CLI, every helper, and both OCR
       # binaries sit next to each other with no bin/libexec split, and skills
-      # live under skills/ rather than share/paniolo/skills/.
-      bin.install "paniolo"
+      # live under skills/ rather than share/panio/skills/.
+      bin.install "panio"
       helpers = %w[hdmicap serialcap netbootd cambrionix hidrig ch9329 shellyplug amt linuxocr rapidocr]
       (libexec/"bin").install helpers
       (pkgshare/"skills").install Dir["skills/*"]
@@ -131,37 +131,37 @@ class Paniolo < Formula
 
   def caveats
     <<~EOS
-      Run `paniolo setup` once to finish platform setup (on macOS this
+      Run `panio setup` once to finish platform setup (on macOS this
       installs the netbootd BPF helper with its set-user-ID bit on — one
-      sudo prompt; re-run it after `brew upgrade paniolo`, since an upgrade
+      sudo prompt; re-run it after `brew upgrade panio`, since an upgrade
       clears that bit).
 
-      Helpers are private to paniolo in:
+      Helpers are private to panio in:
         #{opt_libexec}/bin
-      (found automatically; run one directly with `paniolo helper <name> ...`).
+      (found automatically; run one directly with `panio helper <name> ...`).
 
       The optional zigplug Zigbee helper is a Python uv tool — install it
-      from a source checkout via `paniolo setup`.
+      from a source checkout via `panio setup`.
 
-      Bundled agent skills are available via `paniolo skill` (no arg lists
+      Bundled agent skills are available via `panio skill` (no arg lists
       them; a name prints that skill's SKILL.md).
 
       Linux: `brew install` pours prebuilt binaries — no Rust toolchain
       needed. On a control host that runs capture daemons for days, prefer
       the signed apt repository: its package also installs a tmpfiles.d rule
-      that Homebrew cannot place outside its prefix (paniolo #187). Setup:
-        https://github.com/curtisgalloway/paniolo#linux-apt-repository
+      that Homebrew cannot place outside its prefix (panio #187). Setup:
+        https://github.com/curtisgalloway/panio#linux-apt-repository
     EOS
   end
 
   test do
-    assert_match "paniolo", shell_output("#{bin}/paniolo --help")
+    assert_match "panio", shell_output("#{bin}/panio --help")
     assert_predicate libexec/"bin/serialcap", :executable?
-    assert_path_exists pkgshare/"skills/paniolo/SKILL.md"
-    assert_match "paniolo", shell_output("#{bin}/paniolo skill")
+    assert_path_exists pkgshare/"skills/panio/SKILL.md"
+    assert_match "panio", shell_output("#{bin}/panio skill")
 
     if OS.mac? && !build.head?
-      lipo_info = shell_output("lipo -info #{bin}/paniolo")
+      lipo_info = shell_output("lipo -info #{bin}/panio")
       assert_match "x86_64", lipo_info
       assert_match "arm64", lipo_info
     end
